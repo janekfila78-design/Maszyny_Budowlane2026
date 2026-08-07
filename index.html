@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<title>UDT Trainer 3.2.0 Multi — trener operatora</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+<div class="card toolbar"><div><h1 id="appTitle">UDT Trainer 3.2.0 Multi</h1><div id="appSubtitle" class="small"></div></div><div class="top-actions"><button class="secondary" onclick="showMachinePicker()" title="Zmień moduł">🧩 <span class="module-label" id="moduleButtonLabel">Moduły</span></button><button id="themeBtn" class="secondary iconbtn" onclick="toggleTheme()" title="Zmień motyw">☀️</button></div></div>
+<div id="runtimeError" class="error-banner" role="alert"></div>
+<div id="machinePicker" class="card machine-picker hidden">
+  <div class="toolbar"><div><h2>Wybierz moduł</h2><div class="small">Jedna aplikacja, osobne bazy i osobne postępy nauki.</div></div><button class="secondary" onclick="hideMachinePicker()">Zamknij</button></div>
+  <div class="machine-grid">
+    <button id="machineCranes" class="machine-card" onclick="selectMachine('cranes')"><span class="machine-emoji">🏗️</span><b>Żurawie wieżowe</b><span class="small">949 pytań • 309 ilustracji</span></button>
+    <button id="machineExcavators" class="machine-card" onclick="selectMachine('excavators')"><span class="machine-emoji">🚜</span><b>Koparki jednonaczyniowe kl. I</b><span class="small">402 pytania • 50 ilustracji</span></button>
+    <button id="machineBackhoes" class="machine-card" onclick="selectMachine('backhoes')"><span class="machine-emoji">🚜</span><b>Koparkoładowarki kl. III</b><span class="small">385 pytań • 50 ilustracji</span></button>
+  </div>
+</div>
+<div id="setup" class="card">
+<h2>Nowa sesja</h2>
+<div class="grid">
+<div class="field"><label>Tryb</label><select id="mode"><option value="learn">Nauka — informacja od razu</option><option value="exam">Egzamin — wynik na końcu</option></select></div>
+<div class="field"><label>Pula pytań</label><select id="source"><option value="all">Wszystkie</option><option value="images">Tylko z obrazkami</option><option value="noimages">Bez obrazków</option><option value="wrong">Błędne wcześniej</option><option value="smart">🧠 Inteligentne powtórki</option><option value="hard">Najtrudniejsze</option><option value="unseen">Jeszcze nieprzerobione</option><option value="favorites">Ulubione</option><option value="range">Zakres numerów</option></select></div>
+<div class="field"><label>Liczba pytań</label><input id="count" type="number" min="1" max="949" value="20"></div>
+<div class="field rangeField hidden"><label>Od numeru</label><input id="rangeFrom" type="number" min="1" max="949" value="1"></div>
+<div class="field rangeField hidden"><label>Do numeru</label><input id="rangeTo" type="number" min="1" max="949" value="949"></div>
+</div>
+<div class="row" style="margin-top:12px"><button onclick="startNew()">Rozpocznij</button><button id="resumeBtn" class="secondary hidden" onclick="resumeSession()">Wznów przerwany test</button></div>
+<p id="poolInfo" class="small"></p><p id="setupError" class="small" style="color:var(--bad)"></p>
+</div>
+<div id="dashboard" class="card">
+<div class="row">
+<div class="stat"><span class="small">📚 Przerobione</span><b id="dSeen">0/949</b></div>
+<div class="stat"><span class="small">🎯 Skuteczność</span><b id="dAccuracy">0%</b></div>
+<div class="stat"><span class="small">❌ Błędne</span><b id="dWrong">0</b></div>
+<div class="stat"><span class="small">🔥 Seria</span><b id="dStreak">0 dni</b></div>
+</div>
+<div class="mastery-wrap"><div class="mastery-head"><span>Opanowanie całej bazy</span><span id="dMastery">0%</span></div><div class="progress"><div id="masteryBar" class="bar"></div></div></div>
+<div class="xp-line" style="margin-top:12px"><div><b id="dLevel">Poziom 1</b><div class="small" id="dXpText">0 XP</div></div><div style="min-width:45%;flex:1"><div class="mini-progress"><div id="xpBar" style="width:0%"></div></div></div></div>
+<div id="recommendBox" class="recommend"><b>🧠 Dzisiejsza rekomendacja</b><span id="recommendText" class="small">Rozwiąż pierwszą sesję, a aplikacja wskaże słabe punkty.</span></div>
+<div class="row dashboard-actions"><button onclick="startExamSimulator()">🎯 Symulator egzaminu</button><button class="secondary" onclick="startDailyChallenge()">⚡ Wyzwanie dnia</button><button class="secondary" onclick="showStats()">📊 Statystyki</button><button class="secondary" onclick="showQuestionBrowser()">🔎 Baza pytań</button><button class="secondary" onclick="showAchievements()">🏆 Osiągnięcia</button><button class="secondary" onclick="showDiagnostics()">🛠 Diagnostyka</button><button class="secondary" onclick="exportData()">Eksport</button><button class="secondary" onclick="document.getElementById('importFile').click()">Import</button><input id="importFile" class="hidden" type="file" accept="application/json" onchange="importData(event)"></div>
+</div>
+<div id="quiz" class="hidden"><div class="card"><div class="row"><div class="stat"><span class="small">Pytanie</span><b id="pos">1/20</b></div><div class="stat"><span class="small">Poprawne</span><b id="ok">0</b></div><div class="stat"><span class="small">Skuteczność</span><b id="pct">0%</b></div><div id="timerStat" class="stat hidden"><span class="small">⏱️ Czas</span><b id="examTimer">30:00</b></div></div><br><div class="progress"><div id="bar" class="bar"></div></div><div id="examStatus" class="exam-status exam-only"><span>Odpowiedziane: <b id="examAnswered">0</b>/30</span><span>Pominięte: <b id="examUnanswered">30</b></span><span>Oznaczone: <b id="examFlagged">0</b></span></div><div id="examNavigator" class="exam-nav exam-only"></div><div class="exam-tools exam-only"><button class="secondary" onclick="examPrev()">← Poprzednie</button><button id="flagBtn" class="secondary" onclick="toggleExamFlag()">🚩 Oznacz</button><button class="secondary" onclick="examNext()">Następne →</button></div></div><div class="card"><div class="toolbar"><span id="qid" class="pill"></span><button id="favBtn" class="secondary iconbtn study-only" onclick="toggleFavorite()" title="Ulubione">☆</button></div><div id="q" class="question"></div><div id="imageBox"></div><div id="answers" class="answers"></div><div id="feedback" class="feedback"></div><div class="note-box study-only"><div class="toolbar"><b>📝 Twoja notatka</b><button class="secondary" onclick="saveCurrentNote()">Zapisz</button></div><textarea id="noteText" placeholder="Własne skojarzenie, wyjaśnienie instruktora, pułapka w pytaniu..."></textarea></div><br><div class="row"><button id="next" onclick="nextQuestion()" class="hidden">Następne</button><button onclick="finish(false)" class="secondary">Zakończ</button></div></div></div>
+<div id="result" class="card hidden"><h1>Wynik</h1><p id="resultText" class="question"></p><div id="resultMeta" class="small"></div><div class="row" style="margin-top:12px"><button id="retryWrongBtn" class="hidden" onclick="retryWrong()">Powtórz błędne</button><button onclick="backToMenu()" class="secondary">Menu</button></div><div id="reviewBox" style="margin-top:14px"></div></div>
+<div id="stats" class="card hidden"><div class="toolbar"><h1>Statystyki</h1><button class="secondary" onclick="hideStats()">Zamknij</button></div><div id="statsBody"></div><div class="row" style="margin-top:12px"><button class="danger" onclick="resetProgress()">Wyzeruj wszystkie postępy</button></div></div>
+<div id="browser" class="card hidden"><div class="toolbar"><h1>Baza 949 pytań</h1><button class="secondary" onclick="backToMenu()">Zamknij</button></div><div class="grid"><div class="field"><label>Szukaj po numerze lub treści</label><input id="questionSearch" placeholder="np. 415 albo ogranicznik" oninput="renderQuestionBrowser()"></div><div class="field"><label>Status</label><select id="questionStatus" onchange="renderQuestionBrowser()"><option value="all">Wszystkie</option><option value="unseen">Nieprzerobione</option><option value="mastered">Opanowane</option><option value="hard">Trudne</option><option value="notes">Z notatkami</option><option value="favorites">Ulubione</option></select></div></div><p class="small">🟢 opanowane • 🟡 w trakcie • 🔴 trudne • szary — nieprzerobione</p><div id="questionList" class="q-list"></div></div>
+<div id="questionDetail" class="card hidden"></div>
+<div id="diagnostics" class="card hidden"><div class="toolbar"><div><h1>Diagnostyka</h1><div class="small">Automatyczny test najważniejszych elementów aplikacji.</div></div><button class="secondary" onclick="backToMenu()">Zamknij</button></div><div class="version-pill">Wersja 2.2 Stable</div><div id="diagnosticsBody" class="diag-list"></div><div class="row diag-actions"><button onclick="runDiagnostics()">Uruchom test ponownie</button><button class="secondary" onclick="copyDiagnostics()">Kopiuj wynik</button></div></div>
+<div id="achievements" class="card hidden"><div class="toolbar"><h1>Osiągnięcia</h1><button class="secondary" onclick="backToMenu()">Zamknij</button></div><div id="achievementSummary" class="small" style="margin-bottom:12px"></div><div id="badgeGrid" class="badge-grid"></div></div>
+<div class="footer">UDT Trainer 3.2.0 Multi — trener egzaminacyjny offline. Dane każdego modułu są zapisywane osobno w pamięci przeglądarki.</div>
+</div>
+<div id="imageModal" class="modal hidden" onclick="closeImage()"><button class="secondary" onclick="closeImage()">✕</button><img id="modalImg" alt="Powiększony rysunek"></div>
+<script src="crane_questions_1.js"></script>
+<script src="crane_questions_2.js"></script>
+<script src="crane_questions_3.js"></script>
+<script src="crane_questions_4.js"></script>
+<script src="excavator_questions_1.js"></script>
+<script src="backhoe_questions_1.js"></script>
+<script src="questions_init.js"></script>
+<script src="app.js"></script>
+</html>
