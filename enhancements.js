@@ -1,6 +1,6 @@
 
-/* UDT Trainer 5.0.1 — PWA, offline, aktualizacje, chmura, statystyki, wyjaśnienia */
-const UDT_VERSION='5.0.1';
+/* UDT Trainer 5.1.0 — PWA, offline, aktualizacje, chmura, statystyki, wyjaśnienia */
+const UDT_VERSION='5.1.0';
 let deferredInstallPrompt=null;
 let newWorkerWaiting=null;
 
@@ -58,8 +58,11 @@ function sessionLabel(h){return h.mode==='simulator'?'symulator':h.mode==='exam'
 function enhancedStatsHTML(){
  const vals=Object.values(state.stats),attempts=vals.reduce((a,x)=>a+x.attempts,0),corrects=vals.reduce((a,x)=>a+x.correct,0),seen=vals.filter(x=>x.attempts>0).length;
  const hard=QUESTIONS.filter(q=>(state.stats[q.id]?.attempts||0)>0).sort((a,b)=>smartWeight(b)-smartWeight(a)).slice(0,10);
- const fav=state.favorites.length, notes=Object.keys(state.notes||{}).length;
- let html=`<div class="row"><div class="stat"><span class="small">Łączne odpowiedzi</span><b>${attempts}</b></div><div class="stat"><span class="small">Skuteczność</span><b>${attempts?Math.round(corrects/attempts*100):0}%</b></div><div class="stat"><span class="small">Przerobione</span><b>${seen}/${QUESTIONS.length}</b></div><div class="stat"><span class="small">Opanowanie</span><b>${masteryPercent()}%</b></div><div class="stat"><span class="small">⭐ Ulubione</span><b>${fav}</b></div><div class="stat"><span class="small">📝 Notatki</span><b>${notes}</b></div></div>`;
+ const fav=state.favorites.length, notes=Object.keys(state.notes||{}).length,due=srsDueQuestions().length,mastered=QUESTIONS.filter(q=>masteryFor(q)===1).length,weak=weaknessQuestions().length;
+ const exams=state.history.filter(h=>h.mode==='simulator'||h.mode==='exam'),passed=exams.filter(h=>h.pct>=75).length,best=exams.length?Math.max(...exams.map(h=>h.pct)):0;
+ let html=`<div class="pro-stats-head"><div><span class="small">🧠 SRS do powtórki</span><b>${due}</b><span class="small">pytania gotowe teraz</span></div><div><span class="small">✅ Opanowane</span><b>${mastered}/${QUESTIONS.length}</b><span class="small">pełny poziom opanowania</span></div><div><span class="small">🎯 Symulatory zdane</span><b>${passed}/${exams.length}</b><span class="small">najlepszy wynik ${best}%</span></div></div>`;
+ html+=`<div class="row"><div class="stat"><span class="small">Łączne odpowiedzi</span><b>${attempts}</b></div><div class="stat"><span class="small">Skuteczność</span><b>${attempts?Math.round(corrects/attempts*100):0}%</b></div><div class="stat"><span class="small">Przerobione</span><b>${seen}/${QUESTIONS.length}</b></div><div class="stat"><span class="small">Słabości</span><b>${weak}</b></div><div class="stat"><span class="small">⭐ Ulubione</span><b>${fav}</b></div><div class="stat"><span class="small">📝 Notatki</span><b>${notes}</b></div></div>`;
+ html+=`<div class="readiness-note recommend"><b>🏆 Status modułu</b><span class="small">Opanowanie ${masteryPercent()}% • ${masteryPercent()>=90?'moduł ukończony — puchar odblokowany':'puchar odblokuje się przy 90% opanowania'}</span></div>`;
  html+=`<div class="charts-grid"><div class="chart-card"><h2>📈 Ostatnie wyniki</h2><canvas id="resultsChart" width="800" height="300"></canvas></div><div class="chart-card"><h2>📅 Aktywność 14 dni</h2><canvas id="activityChart" width="800" height="300"></canvas></div></div>`;
  html+=`<h2>Najtrudniejsze pytania</h2>`+(hard.length?hard.map(q=>{const x=state.stats[q.id];return `<div class="history-item" onclick="openQuestionDetail(${q.id})" style="cursor:pointer"><span>Pytanie ${q.id}</span><b>${Math.round(x.correct/x.attempts*100)}% (${x.attempts} prób)</b></div>`}).join(''):'<p class="small">Brak danych.</p>');
  html+=`<h2>Historia testów</h2>`+(state.history.length?state.history.map(h=>`<div class="history-item"><span>${new Date(h.date).toLocaleString('pl-PL')} • ${sessionLabel(h)} • ${h.count} pytań</span><b>${h.pct}%</b></div>`).join(''):'<p class="small">Brak ukończonych testów.</p>');
