@@ -1,0 +1,103 @@
+/* UDT Trainer 4.0 — coach dashboard, SRS, readiness, activity calendar, settings */
+const UDT4_VERSION='4.0.0';
+
+function ensureProState(){
+  state.srs=state.srs||{};
+  state.dailyGoal=Number(state.dailyGoal)||25;
+  state.answerTimes=state.answerTimes||{};
+  state.settings=state.settings||{autoExplain:false,compact:false};
+}
+function localDateKey(d=new Date()){const x=new Date(d);x.setMinutes(x.getMinutes()-x.getTimezoneOffset());return x.toISOString().slice(0,10)}
+function recentAccuracy(){const vals=Object.values(state.stats||{}),a=vals.reduce((s,x)=>s+(x.attempts||0),0),c=vals.reduce((s,x)=>s+(x.correct||0),0);return a?Math.round(c/a*100):0}
+function readinessScore(){
+  ensureProState();
+  const seen=Object.values(state.stats).filter(x=>x.attempts>0).length;
+  const coverage=QUESTIONS.length?seen/QUESTIONS.length:0;
+  const mastery=masteryPercent()/100;
+  const accuracy=recentAccuracy()/100;
+  const exams=state.history.filter(h=>h.mode==='simulator'||h.mode==='exam').slice(0,5);
+  const exam=exams.length?exams.reduce((s,h)=>s+h.pct,0)/(exams.length*100):accuracy*.75;
+  return Math.max(0,Math.min(99,Math.round((coverage*.25+mastery*.35+accuracy*.25+exam*.15)*100)));
+}
+function readinessLabel(v){if(v>=90)return 'Bardzo wysoka';if(v>=80)return 'Wysoka';if(v>=70)return 'Dobra';if(v>=55)return 'Średnia';if(v>0)return 'Budujemy';return 'Brak danych'}
+function dueQuestions(){ensureProState();const now=Date.now();return QUESTIONS.filter(q=>{const x=state.srs[q.id];return x&&(!x.due||x.due<=now)}).sort((a,b)=>(state.srs[a.id]?.due||0)-(state.srs[b.id]?.due||0))}
+function unseenQuestions(){return QUESTIONS.filter(q=>(state.stats[q.id]?.attempts||0)===0)}
+function srsUpdate(id,isGood){ensureProState();const old=state.srs[id]||{box:0,streak:0};let box=old.box||0,streak=old.streak||0;if(isGood){streak++;box=Math.min(5,box+1)}else{streak=0;box=Math.max(0,box-2)};const gapsGood=[0,1,3,7,14,30],days=isGood?gapsGood[box]:0.25;state.srs[id]={box,streak,last:Date.now(),due:Date.now()+days*86400000};}
+function smartSrsPool(n=20){ensureProState();const due=dueQuestions(),unseen=unseenQuestions();const hard=QUESTIONS.filter(q=>(state.stats[q.id]?.wrong||0)>0).sort((a,b)=>smartWeight(b)-smartWeight(a));const merged=[...due,...hard,...unseen,...QUESTIONS];const seen=new Set();return merged.filter(q=>!seen.has(q.id)&&seen.add(q.id)).slice(0,n)}
+function startCoachSession(){document.getElementById('mode').value='learn';startNew(smartSrsPool(Math.max(10,Math.min(50,state.dailyGoal||25))))}
+function startQuickReview(){document.getElementById('mode').value='learn';const p=smartSrsPool(10);startNew(p.length?p:shuffle([...QUESTIONS]).slice(0,10))}
+
+let __answerStarted=Date.now();
+const __udt4Render=window.render;
+window.render=function(){__udt4Render();__answerStarted=Date.now();};
+const __udt4Choose=window.choose;
+window.choose=function(idx){
+  const item=pool[current]; const already=answered;
+  __udt4Choose(idx);
+  if(!examSimulator && item && !already){
+    ensureProState();
+    const good=idx===item.correct;
+    srsUpdate(item.id,good);
+    const elapsed=Math.max(1,Math.round((Date.now()-__answerStarted)/1000));
+    const t=state.answerTimes[item.id]||{count:0,total:0};t.count++;t.total+=elapsed;state.answerTimes[item.id]=t;
+    localStorage.setItem(KEY,JSON.stringify(state));
+    if(state.settings?.autoExplain&&!good)setTimeout(()=>showExplanation(item.id,idx),30);
+  }
+};
+
+function todayAnswered(){const today=localDateKey();return state.history.filter(h=>localDateKey(h.date)===today).reduce((s,h)=>s+(h.count||0),0)}
+function estimatedDays(){const remaining=unseenQuestions().length;return remaining?Math.max(1,Math.ceil(remaining/Math.max(1,state.dailyGoal||25))):0}
+function weakQuestions(limit=3){return QUESTIONS.filter(q=>(state.stats[q.id]?.attempts||0)>0).sort((a,b)=>smartWeight(b)-smartWeight(a)).slice(0,limit)}
+function strongQuestions(limit=3){return QUESTIONS.filter(q=>(state.stats[q.id]?.attempts||0)>=2).sort((a,b)=>{const A=state.stats[a.id],B=state.stats[b.id];return (B.correct/B.attempts)-(A.correct/A.attempts)}).slice(0,limit)}
+function coachText(){const due=dueQuestions().length,unseen=unseenQuestions().length,w=weakQuestions(3);if(due)return `Masz ${due} powtórek SRS do zrobienia. Zacznij od nich — aplikacja dobrała termin na podstawie Twoich odpowiedzi.`;if(w.length)return `Najbardziej opłaca się teraz wrócić do pytań ${w.map(q=>q.id).join(', ')}. Potem dorzuć ${Math.min(15,unseen)} nowych.`;if(unseen)return `Dzisiaj przerób ${Math.min(state.dailyGoal||25,unseen)} nowych pytań. Po pierwszych błędach inteligentne powtórki same ustawią priorytety.`;return 'Cała baza była już przerobiona. Teraz utrzymuj wynik inteligentnymi powtórkami i symulatorem egzaminu.'}
+function heatmapHTML(){const study=new Set(state.studyDays||[]),hist=state.history||[];let cells='';for(let i=29;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const k=localDateKey(d);const sessions=hist.filter(h=>localDateKey(h.date)===k).length;const active=study.has(k);const lvl=Math.min(4,(active?1:0)+sessions);cells+=`<span class="heat h${lvl}" title="${k}: ${sessions} sesji"></span>`}return `<div class="heatmap">${cells}</div><div class="heat-legend small">30 dni temu <span></span> dzisiaj</div>`}
+function averageAnswerTime(){ensureProState();const vals=Object.values(state.answerTimes);const c=vals.reduce((s,x)=>s+x.count,0),t=vals.reduce((s,x)=>s+x.total,0);return c?Math.round(t/c):0}
+
+function ensureUdt4UI(){
+  ensureProState();
+  const title=document.getElementById('appTitle');if(title)title.textContent='UDT Trainer 4.0';
+  document.title='UDT Trainer 4.0 — trener operatora';
+  const dash=document.getElementById('dashboard');
+  if(dash&&!document.getElementById('coachHero')){
+    dash.insertAdjacentHTML('afterbegin',`<section id="coachHero" class="coach-hero"><div><span class="eyebrow">TWÓJ TRENER</span><h2 id="coachGreeting">Gotowy do nauki?</h2><p id="coachPlan" class="small"></p><div class="row coach-buttons"><button onclick="startCoachSession()">▶ Rozpocznij plan dnia</button><button class="secondary" onclick="startQuickReview()">🔁 Szybka powtórka</button></div></div><div class="readiness"><span class="small">Szansa zdania*</span><strong id="readinessValue">0%</strong><span id="readinessLabel" class="small">Brak danych</span></div></section>
+    <section class="coach-strip"><div><span class="small">Dzisiaj</span><b id="todayProgress">0/25</b></div><div><span class="small">SRS do powtórki</span><b id="dueCount">0</b></div><div><span class="small">Śr. czas odpowiedzi</span><b id="avgTime">—</b></div><div><span class="small">Szac. dni do bazy</span><b id="daysLeft">—</b></div></section>
+    <section class="activity-card"><div class="toolbar"><div><b>📅 Aktywność — 30 dni</b><div class="small">Regularność robi większą robotę niż jednorazowy maraton.</div></div></div><div id="heatmapHost"></div></section>`);
+  }
+  const actions=document.querySelector('.dashboard-actions');
+  if(actions){
+    Array.from(actions.children).forEach(el=>{const text=el.textContent||'';if(/Diagnostyka|Eksport|Import|Synchronizacja/.test(text))el.classList.add('pro-hidden-action')});
+    if(!document.getElementById('settingsDashBtn'))actions.insertAdjacentHTML('beforeend','<button id="settingsDashBtn" class="secondary" onclick="showSettings()">⚙️ Ustawienia</button>');
+  }
+  if(!document.getElementById('settingsPanel')){
+    const app=document.querySelector('.app'),footer=document.querySelector('.footer'),p=document.createElement('div');p.id='settingsPanel';p.className='card hidden';p.innerHTML=`<div class="toolbar"><div><h1>⚙️ Ustawienia</h1><div class="small">Kopie zapasowe, synchronizacja i narzędzia techniczne siedzą tutaj, a nie na środku dashboardu.</div></div><button class="secondary" onclick="backToMenu()">Zamknij</button></div>
+      <div class="settings-grid"><div class="settings-box"><h2>🎯 Nauka</h2><label class="field"><span>Dzienny cel pytań</span><input id="dailyGoalInput" type="number" min="5" max="200" step="5"></label><label class="check"><input id="autoExplainInput" type="checkbox"> Automatycznie pokaż wyjaśnienie po błędzie</label><button onclick="saveProSettings()">Zapisz ustawienia</button></div>
+      <div class="settings-box"><h2>💾 Kopia danych</h2><p class="small">Eksport zapisuje postęp bieżącego modułu. Import odtwarza go z pliku.</p><div class="row"><button class="secondary" onclick="exportData()">📤 Eksport</button><button class="secondary" onclick="document.getElementById('importFile').click()">📥 Import</button></div></div>
+      <div class="settings-box"><h2>☁️ Synchronizacja</h2><p class="small">Opcjonalna synchronizacja przez prywatny GitHub Gist.</p><button class="secondary" onclick="showSyncPanel()">Otwórz synchronizację</button></div>
+      <div class="settings-box"><h2>🛠 Narzędzia</h2><div class="row"><button class="secondary" onclick="showDiagnostics()">Diagnostyka</button><button class="danger" onclick="resetProgress()">Wyzeruj postęp</button></div></div></div>`;app.insertBefore(p,footer);
+  }
+  if(!document.getElementById('bottomNav')){
+    document.body.insertAdjacentHTML('beforeend',`<nav id="bottomNav" class="bottom-nav"><button onclick="backToMenu()"><span>🏠</span>Start</button><button onclick="showQuestionBrowser()"><span>🔎</span>Baza</button><button class="nav-main" onclick="startCoachSession()"><span>▶</span>Nauka</button><button onclick="showStats()"><span>📊</span>Postęp</button><button onclick="showSettings()"><span>⚙️</span>Więcej</button></nav>`);
+  }
+  const footer=document.querySelector('.footer');if(footer)footer.textContent='UDT Trainer 4.0 — trener operatora • PWA offline • inteligentne powtórki • dane lokalne';
+  const diag=document.querySelector('#diagnostics .version-pill');if(diag)diag.textContent='Wersja 4.0.0';
+}
+function refreshCoach(){
+  if(!document.getElementById('coachHero'))return;ensureProState();const r=readinessScore(),goal=state.dailyGoal||25,done=todayAnswered();
+  document.getElementById('readinessValue').textContent=r+'%';document.getElementById('readinessLabel').textContent=readinessLabel(r);document.querySelector('.readiness').style.background=`conic-gradient(var(--accent) 0 ${r}%,var(--bg2) ${r}% 100%)`;
+  document.getElementById('coachGreeting').textContent=r>=80?'Jesteś blisko trybu egzaminacyjnego.':'Budujemy pewność krok po kroku.';
+  document.getElementById('coachPlan').textContent=coachText();document.getElementById('todayProgress').textContent=`${Math.min(done,goal)}/${goal}`;document.getElementById('dueCount').textContent=dueQuestions().length;
+  const avg=averageAnswerTime();document.getElementById('avgTime').textContent=avg?avg+' s':'—';const d=estimatedDays();document.getElementById('daysLeft').textContent=d?d:'✓';document.getElementById('heatmapHost').innerHTML=heatmapHTML();
+}
+function showSettings(){saveCurrentNote?.();hideMainPanels();document.getElementById('settingsPanel').classList.remove('hidden');ensureProState();document.getElementById('dailyGoalInput').value=state.dailyGoal||25;document.getElementById('autoExplainInput').checked=!!state.settings.autoExplain;window.scrollTo({top:0,behavior:'smooth'})}
+function saveProSettings(){ensureProState();state.dailyGoal=Math.max(5,Math.min(200,Number(document.getElementById('dailyGoalInput').value)||25));state.settings.autoExplain=!!document.getElementById('autoExplainInput').checked;saveState();refreshCoach();alert('Ustawienia zapisane.')}
+
+const __udt4Hide=window.hideMainPanels;window.hideMainPanels=function(){__udt4Hide();document.getElementById('settingsPanel')?.classList.add('hidden')};
+const __udt4Back=window.backToMenu;window.backToMenu=function(){document.getElementById('settingsPanel')?.classList.add('hidden');__udt4Back();refreshCoach()};
+const __udt4Dash=window.updateDashboard;window.updateDashboard=function(){ensureProState();__udt4Dash();refreshCoach()};
+const __udt4Machine=window.updateMachineUI;window.updateMachineUI=function(){__udt4Machine();refreshCoach()};
+
+// Extend stats with readiness + SRS + 30-day heatmap.
+const __udt4Stats=window.showStats;
+window.showStats=function(){__udt4Stats();setTimeout(()=>{const b=document.getElementById('statsBody');if(!b||document.getElementById('proStatsHead'))return;const r=readinessScore();b.insertAdjacentHTML('afterbegin',`<div id="proStatsHead" class="pro-stats-head"><div><span class="small">🎯 Szansa zdania*</span><b>${r}%</b><span class="small">${readinessLabel(r)}</span></div><div><span class="small">🧠 SRS do powtórki</span><b>${dueQuestions().length}</b><span class="small">pytań na teraz</span></div><div><span class="small">⏱ Średnia odpowiedź</span><b>${averageAnswerTime()||'—'}${averageAnswerTime()?' s':''}</b><span class="small">w trybie nauki</span></div></div><div class="activity-card"><b>📅 Regularność — 30 dni</b>${heatmapHTML()}</div><p class="small readiness-note">* Wskaźnik treningowy wyliczany z pokrycia bazy, opanowania, skuteczności i ostatnich próbnych egzaminów. Nie jest gwarancją wyniku oficjalnego egzaminu.</p>`);},0)};
+
+window.addEventListener('DOMContentLoaded',()=>{ensureUdt4UI();ensureProState();refreshCoach();});

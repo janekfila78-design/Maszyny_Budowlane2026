@@ -140,7 +140,7 @@ function diagnosticChecks(){
   ['Funkcje silnika',funcs.every(n=>typeof window[n]==='function'),funcs.filter(n=>typeof window[n]!=='function').join(', ')||'komplet'],
   ['Pamięć lokalna',(()=>{try{const k='__udt_test__';localStorage.setItem(k,'1');localStorage.removeItem(k);return true}catch(e){return false}})(),'localStorage'],
   ['Obrazki w bazie',QUESTIONS.filter(q=>q.img).length===MACHINE_META[activeMachine].images,`${QUESTIONS.filter(q=>q.img).length} / ${MACHINE_META[activeMachine].images} ilustracji`],
-  ['Spójność wersji',document.title.includes('3.4.0')&&document.querySelector('h1')?.textContent.includes('3.4.0')&&document.querySelector('.footer')?.textContent.includes('3.4.0'),'tytuł, nagłówek i stopka']
+  ['Spójność wersji',document.title.includes('4.0')&&document.querySelector('h1')?.textContent.includes('4.0')&&document.querySelector('.footer')?.textContent.includes('4.0'),'tytuł, nagłówek i stopka']
  ];
  return checks;
 }
@@ -149,7 +149,7 @@ function runDiagnostics(){
  const body=document.getElementById('diagnosticsBody');
  body.innerHTML=checks.map(([name,ok,detail])=>`<div class="diag-item"><span><b>${escapeHtml(name)}</b><br><span class="small">${escapeHtml(String(detail))}</span></span><span class="${ok?'diag-ok':'diag-bad'}">${ok?'OK':'BŁĄD'}</span></div>`).join('');
  const passed=checks.filter(x=>x[1]).length;
- __lastDiagnosticText=`UDT Trainer 3.4.0 Multi — diagnostyka\n${checks.map(([n,o,d])=>`${o?'OK':'BŁĄD'} | ${n} | ${d}`).join('\n')}\nWynik: ${passed}/${checks.length}`;
+ __lastDiagnosticText=`UDT Trainer 4.0 — diagnostyka\n${checks.map(([n,o,d])=>`${o?'OK':'BŁĄD'} | ${n} | ${d}`).join('\n')}\nWynik: ${passed}/${checks.length}`;
 }
 function showDiagnostics(){hideMainPanels();document.getElementById('diagnostics').classList.remove('hidden');runDiagnostics()}
 async function copyDiagnostics(){
