@@ -1,19 +1,9 @@
-# UDT Trainer 4.0
+# UDT Trainer 5.0.1 — Sprint #1
 
-Trener egzaminacyjny PWA dla operatorów maszyn.
-
-## 4.0
-- nowy dashboard trenera i mobilna nawigacja,
-- wskaźnik gotowości do egzaminu,
-- inteligentne powtórki SRS,
-- dzienny plan nauki i szybka powtórka,
-- 30-dniowy kalendarz aktywności,
-- średni czas odpowiedzi,
-- statystyki PRO,
-- wyszukiwarka, ulubione, notatki i wyjaśnienia odpowiedzi,
-- symulator egzaminu,
-- PWA + offline + automatyczne aktualizacje,
-- eksport/import oraz opcjonalna synchronizacja przez prywatny GitHub Gist,
-- ustawienia i diagnostyka schowane z głównego ekranu.
-
-Wskaźnik „szansa zdania” jest treningową estymacją, a nie gwarancją wyniku oficjalnego egzaminu.
+- każde błędne pytanie trafia do „Moich słabości”;
+- po 2 kolejnych poprawnych odpowiedziach automatycznie wypada z tej puli;
+- ranking uwzględnia liczbę błędów i skuteczność;
+- nowy przycisk „🎯 Trenuj moje słabości”;
+- nowa pula „🎯 Moje słabości”;
+- panel 5 najsłabszych pytań na dashboardzie;
+- podbity cache PWA do 5.0.1.

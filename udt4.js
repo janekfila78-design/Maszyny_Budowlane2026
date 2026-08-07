@@ -1,4 +1,4 @@
-/* UDT Trainer 4.0 — coach dashboard, SRS, readiness, activity calendar, settings */
+/* UDT Trainer 5.0.1 — coach dashboard, SRS, readiness, activity calendar, settings */
 const UDT4_VERSION='4.0.0';
 
 function ensureProState(){
@@ -47,7 +47,7 @@ window.choose=function(idx){
 
 function todayAnswered(){const today=localDateKey();return state.history.filter(h=>localDateKey(h.date)===today).reduce((s,h)=>s+(h.count||0),0)}
 function estimatedDays(){const remaining=unseenQuestions().length;return remaining?Math.max(1,Math.ceil(remaining/Math.max(1,state.dailyGoal||25))):0}
-function weakQuestions(limit=3){return QUESTIONS.filter(q=>(state.stats[q.id]?.attempts||0)>0).sort((a,b)=>smartWeight(b)-smartWeight(a)).slice(0,limit)}
+function weakQuestions(limit=3){return weaknessQuestions().slice(0,limit)}
 function strongQuestions(limit=3){return QUESTIONS.filter(q=>(state.stats[q.id]?.attempts||0)>=2).sort((a,b)=>{const A=state.stats[a.id],B=state.stats[b.id];return (B.correct/B.attempts)-(A.correct/A.attempts)}).slice(0,limit)}
 function coachText(){const due=dueQuestions().length,unseen=unseenQuestions().length,w=weakQuestions(3);if(due)return `Masz ${due} powtórek SRS do zrobienia. Zacznij od nich — aplikacja dobrała termin na podstawie Twoich odpowiedzi.`;if(w.length)return `Najbardziej opłaca się teraz wrócić do pytań ${w.map(q=>q.id).join(', ')}. Potem dorzuć ${Math.min(15,unseen)} nowych.`;if(unseen)return `Dzisiaj przerób ${Math.min(state.dailyGoal||25,unseen)} nowych pytań. Po pierwszych błędach inteligentne powtórki same ustawią priorytety.`;return 'Cała baza była już przerobiona. Teraz utrzymuj wynik inteligentnymi powtórkami i symulatorem egzaminu.'}
 function heatmapHTML(){const study=new Set(state.studyDays||[]),hist=state.history||[];let cells='';for(let i=29;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const k=localDateKey(d);const sessions=hist.filter(h=>localDateKey(h.date)===k).length;const active=study.has(k);const lvl=Math.min(4,(active?1:0)+sessions);cells+=`<span class="heat h${lvl}" title="${k}: ${sessions} sesji"></span>`}return `<div class="heatmap">${cells}</div><div class="heat-legend small">30 dni temu <span></span> dzisiaj</div>`}
@@ -55,8 +55,8 @@ function averageAnswerTime(){ensureProState();const vals=Object.values(state.ans
 
 function ensureUdt4UI(){
   ensureProState();
-  const title=document.getElementById('appTitle');if(title)title.textContent='UDT Trainer 4.0';
-  document.title='UDT Trainer 4.0 — trener operatora';
+  const title=document.getElementById('appTitle');if(title)title.textContent='UDT Trainer 5.0.1';
+  document.title='UDT Trainer 5.0.1 — trener operatora';
   const dash=document.getElementById('dashboard');
   if(dash&&!document.getElementById('coachHero')){
     dash.insertAdjacentHTML('afterbegin',`<section id="coachHero" class="coach-hero"><div><span class="eyebrow">TWÓJ TRENER</span><h2 id="coachGreeting">Gotowy do nauki?</h2><p id="coachPlan" class="small"></p><div class="row coach-buttons"><button onclick="startCoachSession()">▶ Rozpocznij plan dnia</button><button class="secondary" onclick="startQuickReview()">🔁 Szybka powtórka</button></div></div><div class="readiness"><span class="small">Szansa zdania*</span><strong id="readinessValue">0%</strong><span id="readinessLabel" class="small">Brak danych</span></div></section>
@@ -78,8 +78,16 @@ function ensureUdt4UI(){
   if(!document.getElementById('bottomNav')){
     document.body.insertAdjacentHTML('beforeend',`<nav id="bottomNav" class="bottom-nav"><button onclick="backToMenu()"><span>🏠</span>Start</button><button onclick="showQuestionBrowser()"><span>🔎</span>Baza</button><button class="nav-main" onclick="startCoachSession()"><span>▶</span>Nauka</button><button onclick="showStats()"><span>📊</span>Postęp</button><button onclick="showSettings()"><span>⚙️</span>Więcej</button></nav>`);
   }
-  const footer=document.querySelector('.footer');if(footer)footer.textContent='UDT Trainer 4.0 — trener operatora • PWA offline • inteligentne powtórki • dane lokalne';
+  const footer=document.querySelector('.footer');if(footer)footer.textContent='UDT Trainer 5.0.1 — trener operatora • PWA offline • inteligentne powtórki • dane lokalne';
   const diag=document.querySelector('#diagnostics .version-pill');if(diag)diag.textContent='Wersja 4.0.0';
+}
+function weaknessRowsHTML(){
+  const list=weaknessQuestions().slice(0,5);
+  if(!list.length)return '<div class="small weakness-empty">Brak aktywnych słabości. Dobra robota.</div>';
+  return list.map((q,i)=>{
+    const st=state.stats[q.id],acc=Math.round((st.correct||0)/Math.max(1,st.attempts||0)*100);
+    return `<button class="weak-row" onclick="openQuestionDetail(${q.id})"><span class="weak-num">${i+1}</span><span class="weak-text"><b>Pytanie ${q.id}</b><small>${escapeHtml(clean(q.q))}</small></span><span class="weak-meta">${st.wrong||0} bł. • ${acc}%</span></button>`
+  }).join('')
 }
 function refreshCoach(){
   if(!document.getElementById('coachHero'))return;ensureProState();const r=readinessScore(),goal=state.dailyGoal||25,done=todayAnswered();
