@@ -1,6 +1,6 @@
 
-/* UDT Trainer 5.1.0 — PWA, offline, aktualizacje, chmura, statystyki, wyjaśnienia */
-const UDT_VERSION='5.1.0';
+/* UDT Trainer 5.2.0 — PWA, offline, aktualizacje, chmura, statystyki, wyjaśnienia */
+const UDT_VERSION='5.2.0';
 let deferredInstallPrompt=null;
 let newWorkerWaiting=null;
 
@@ -83,26 +83,110 @@ window.updateMachineUI=function(){originalUpdateMachineUI();const bh=document.qu
 const originalShowStats=window.showStats;
 window.showStats=function(){hideMainPanels();document.getElementById('stats').classList.remove('hidden');document.getElementById('statsBody').innerHTML=enhancedStatsHTML();requestAnimationFrame(()=>{const hist=[...state.history].reverse().slice(-12);drawLineChart(document.getElementById('resultsChart'),hist.map(h=>h.pct),hist.map(h=>h.date));const days=[];for(let i=13;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);days.push(d.toISOString().slice(0,10))}const counts=days.map(d=>state.studyDays.filter(x=>x===d).length);drawBars(document.getElementById('activityChart'),counts,days.map(d=>d.slice(5)))})}
 
-// --- Favorites in question detail + local smart explanation ---
-function localExplanation(q,selectedIndex=null){
- const correct=clean(q.a[q.correct]||q.correctText||'');
- let txt=`Poprawna odpowiedź to ${letter(q.correct)}: „${correct}”. `;
- const qtxt=clean(q.q);
- if(/minimal|odległo|dopuszczal|bezpiecz/i.test(qtxt))txt+='To pytanie sprawdza konkretną wartość lub warunek bezpieczeństwa — na egzaminie zwracaj uwagę na słowa „minimalna”, „bezpieczna” i jednostki. ';
- else if(/zabron|dozwol|wolno|należy|powin/i.test(qtxt))txt+='To pytanie dotyczy zasady lub obowiązku. Najważniejsze jest rozróżnienie tego, co jest wymagane, dozwolone i zabronione. ';
- else if(/olej|silnik|hydraul|ciśn|smar/i.test(qtxt))txt+='To pytanie dotyczy eksploatacji maszyny. Szukaj odpowiedzi, która chroni układ przed zużyciem, przegrzaniem lub uszkodzeniem. ';
- else txt+='Zapamiętaj przede wszystkim związek między treścią pytania a dokładnym sformułowaniem poprawnej odpowiedzi. ';
- if(selectedIndex!==null&&selectedIndex!==undefined&&selectedIndex!==q.correct)txt+=`Wybrana przez Ciebie odpowiedź ${letter(selectedIndex)} różni się od klucza. Porównaj oba sformułowania — w testach UDT pojedyncze słowo lub wartość często przesądza o wyniku.`;
- return txt;
+// --- Asystent Nauki 5.2: wyjaśnienia błędów, wskazówki i pułapki ---
+function answerText(q,index){return clean(q?.a?.[index] ?? '')}
+function learningAssistantData(q,selectedIndex=null){
+  const correctIndex=Number(q.correct);
+  const correct=answerText(q,correctIndex)||clean(q.correctText||'');
+  const selected=(selectedIndex!==null&&selectedIndex!==undefined)?answerText(q,selectedIndex):'';
+  const qtxt=clean(q.q);
+  const sourceExplanation=clean(q.explanation||'');
+  const sourceTip=clean(q.memoryTip||q.memory_tip||'');
+  const sourceMistake=clean(q.commonMistake||q.common_mistake||'');
+
+  let short=sourceExplanation;
+  let expanded='';
+  let tip=sourceTip;
+  let mistake=sourceMistake;
+
+  if(!short){
+    if(/lin(ia|ii|ię|ie).*elektro|przewod.*(kv|v)|napięci/i.test(qtxt)){
+      short=`Klucz wskazuje odpowiedź ${letter(correctIndex)}: „${correct}”. W pytaniach o linie elektroenergetyczne decydują przede wszystkim zakres napięcia i wymagana odległość — pomylenie jednego z nich zmienia wynik.`;
+      expanded=`Najpierw znajdź w treści napięcie linii, a dopiero potem dopasuj wartość z odpowiedzi. Nie wybieraj odległości „na wyczucie”: w takich pytaniach konkretna wartość jest częścią zasady bezpieczeństwa.`;
+      tip=tip||`Napięcie → właściwa odległość. Tu: ${correct}.`;
+    }else if(/klin.*odłam|wykop|nasyp|skar(p|py)|odległo/i.test(qtxt)){
+      short=`Poprawna jest odpowiedź ${letter(correctIndex)}: „${correct}”. Pytanie sprawdza konkretny warunek bezpiecznego ustawienia maszyny względem wykopu, nasypu albo strefy zagrożenia.`;
+      expanded=`Przy takich zadaniach najpierw ustal, od którego punktu mierzona jest odległość i czy pytanie dotyczy dna, górnej krawędzi, klina odłamu czy innego elementu. Dopiero potem porównuj liczby z odpowiedzi.`;
+      tip=tip||`Zapamiętaj dokładne sformułowanie klucza: ${correct}.`;
+    }else if(/pierwsz.*pomoc|poszkod|krwaw|oparze|resuscyt|aed|oddech|tętn|padacz|kręgosłup|zatruc/i.test(qtxt)){
+      short=`Klucz wskazuje ${letter(correctIndex)}: „${correct}”. W pierwszej pomocy wybieraj działanie, które w pierwszej kolejności zabezpiecza życie i nie pogarsza stanu poszkodowanego.`;
+      expanded=`Czytaj pytanie jak krótką sytuację ratunkową: co zagraża bezpośrednio życiu, czego nie wolno robić i jaka czynność jest najpilniejsza. Odpowiedzi zawierające ryzykowne manipulowanie poszkodowanym lub podawanie przypadkowych środków są częstymi pułapkami.`;
+      tip=tip||`Najpierw bezpieczeństwo i czynność ratująca życie.`;
+    }else if(/olej|silnik|hydraul|ciśn|smar|filtr|płyn|chłodz|paliw/i.test(qtxt)){
+      short=`Poprawna jest ${letter(correctIndex)}: „${correct}”. To pytanie dotyczy prawidłowej eksploatacji maszyny — właściwa odpowiedź chroni układ przed zużyciem, przegrzaniem albo uszkodzeniem.`;
+      expanded=`Zwróć uwagę, czy pytanie dotyczy poziomu, jakości, temperatury, ciśnienia lub kolejności obsługi. W technice drobna różnica w warunku często oznacza zupełnie inną czynność serwisową.`;
+      tip=tip||`Eksploatacja: szukaj odpowiedzi bezpiecznej dla maszyny i układu.`;
+    }else if(/zabron|dozwol|wolno|należy|powin|obowiąz|może.*prac/i.test(qtxt)){
+      short=`Klucz wskazuje ${letter(correctIndex)}: „${correct}”. Tutaj najważniejsze jest słowo określające obowiązek, zakaz albo warunek dopuszczenia do pracy.`;
+      expanded=`W pytaniach regulaminowych nie wystarczy, że odpowiedź „brzmi rozsądnie”. Porównaj dokładnie słowa „należy”, „można”, „nie wolno”, „zawsze”, „tylko gdy” — właśnie na takich różnicach budowane są odpowiedzi egzaminacyjne.`;
+      tip=tip||`Czytaj słowa graniczne: należy / wolno / nie wolno / tylko gdy.`;
+    }else{
+      short=`Poprawna jest odpowiedź ${letter(correctIndex)}: „${correct}”. Kluczowe jest dokładne powiązanie treści pytania z tym sformułowaniem, a nie zapamiętanie samej litery.`;
+      expanded=`Przeczytaj jeszcze raz pytanie bez patrzenia na warianty, nazwij własnymi słowami czego ono dotyczy, a potem zestaw to z poprawną odpowiedzią. To ogranicza zgadywanie po układzie A/B/C.`;
+      tip=tip||`Zapamiętaj sens: ${correct}.`;
+    }
+  }else{
+    expanded=clean(q.explanationLong||q.explanation_long||'')||short;
+  }
+
+  if(!mistake && selectedIndex!==null && selectedIndex!==undefined && Number(selectedIndex)!==correctIndex){
+    mistake=`Wybrałeś ${letter(selectedIndex)}: „${selected}”. Klucz wskazuje ${letter(correctIndex)}. Porównaj oba warianty słowo po słowie — różnica, która wygląda na drobną, często jest właśnie pułapką egzaminacyjną.`;
+  }else if(!mistake){
+    mistake=`Nie ucz się litery ${letter(correctIndex)}. Ucz się związku: pytanie → „${correct}”.`;
+  }
+
+  return {short,expanded,tip,mistake,correct,correctIndex};
 }
-function showExplanation(id,selectedIndex=null){const q=QUESTIONS.find(x=>x.id===id);if(!q)return;const target=document.getElementById('explainBox')||document.getElementById('feedback');if(!target)return;target.className='feedback explain-box';target.style.display='block';target.innerHTML=`<b>🤖 Wyjaśnienie</b><div>${escapeHtml(localExplanation(q,selectedIndex))}</div><div class="small">Tryb lokalny — działa również offline.</div>`}
+function learningStatusFor(q){
+  const st=state.stats[q.id];
+  if(!st)return '';
+  const wrong=Number(st.wrong)||0;
+  if(wrong>=5)return `<div class="assistant-alert high"><b>🚨 Priorytetowa słabość</b><span>To pytanie było błędne ${wrong}×. System nadaje mu wysoki priorytet w treningu słabości i inteligentnych powtórkach.</span></div>`;
+  if(wrong>=3)return `<div class="assistant-alert"><b>🧠 To pytanie wraca</b><span>Błąd ${wrong}×. Po błędzie SRS ustawia je do szybkiej powtórki.</span></div>`;
+  return '';
+}
+function explanationHTML(q,selectedIndex=null,expanded=false){
+  const d=learningAssistantData(q,selectedIndex);
+  const st=learningStatusFor(q);
+  return `<div class="assistant-head"><span class="assistant-icon">🧠</span><div><b>Asystent Nauki</b><span class="small">Wyjaśnienie działa także offline</span></div></div>
+    <div class="assistant-correct"><span>✅ Poprawna odpowiedź</span><b>${letter(d.correctIndex)}. ${escapeHtml(d.correct)}</b></div>
+    <div class="assistant-section"><b>💡 Dlaczego?</b><p>${escapeHtml(d.short)}</p></div>
+    ${expanded?`<div class="assistant-section assistant-more"><b>📖 Rozszerzenie</b><p>${escapeHtml(d.expanded)}</p></div>
+    <div class="assistant-section memory-tip"><b>🧠 Zapamiętaj</b><p>${escapeHtml(d.tip)}</p></div>
+    <div class="assistant-section common-mistake"><b>⚠️ Pułapka</b><p>${escapeHtml(d.mistake)}</p></div>`:''}
+    ${st}
+    <div class="assistant-actions"><button class="secondary mini-btn" onclick="showExplanation(${q.id},${selectedIndex===null?'null':Number(selectedIndex)},${expanded?'false':'true'})">${expanded?'Zwiń':'📖 Więcej'}</button></div>`;
+}
+function showExplanation(id,selectedIndex=null,expanded=false){
+  const q=QUESTIONS.find(x=>x.id===id);if(!q)return;
+  const target=document.getElementById('explainBox')||document.getElementById('feedback');if(!target)return;
+  target.className='feedback explain-box learning-assistant';
+  target.style.display='block';
+  target.innerHTML=explanationHTML(q,selectedIndex,expanded);
+}
 const originalOpenQuestionDetail=window.openQuestionDetail;
-window.openQuestionDetail=function(id){originalOpenQuestionDetail(id);const q=QUESTIONS.find(x=>x.id===id);const panel=document.getElementById('questionDetail');if(!panel||!q)return;const isFav=state.favorites.includes(id);panel.insertAdjacentHTML('beforeend',`<div id="explainBox" class="feedback explain-box" style="display:none"></div><div class="row" style="margin-top:10px"><button class="secondary" onclick="toggleDetailFavorite(${id})">${isFav?'★ Usuń z ulubionych':'☆ Dodaj do ulubionych'}</button><button class="secondary" onclick="showExplanation(${id})">🤖 Wyjaśnij odpowiedź</button></div>`)}
+window.openQuestionDetail=function(id){
+  originalOpenQuestionDetail(id);
+  const q=QUESTIONS.find(x=>x.id===id),panel=document.getElementById('questionDetail');if(!panel||!q)return;
+  const isFav=state.favorites.includes(id);
+  panel.insertAdjacentHTML('beforeend',`<div id="explainBox" class="feedback explain-box learning-assistant" style="display:none"></div><div class="row" style="margin-top:10px"><button class="secondary" onclick="toggleDetailFavorite(${id})">${isFav?'★ Usuń z ulubionych':'☆ Dodaj do ulubionych'}</button><button class="secondary" onclick="showExplanation(${id})">🧠 Asystent Nauki</button></div>`);
+}
 function toggleDetailFavorite(id){const i=state.favorites.indexOf(id);if(i>=0)state.favorites.splice(i,1);else state.favorites.push(id);saveState();openQuestionDetail(id)}
 
-// Add explanation button to learning feedback after answering.
+// Po odpowiedzi: przy błędzie asystent rozwija się automatycznie, przy poprawnej zostaje przycisk „Dlaczego?”.
 const originalChoose=window.choose;
-window.choose=function(idx){originalChoose(idx);if(!examSimulator&&answered){const item=pool[current];const fb=document.getElementById('feedback');if(fb&&!document.getElementById('learnExplainBtn'))fb.insertAdjacentHTML('beforeend',`<div><button id="learnExplainBtn" class="secondary mini-btn" onclick="showExplanation(${item.id},${idx})">🤖 Wyjaśnij</button></div>`)}}
+window.choose=function(idx){
+  originalChoose(idx);
+  if(examSimulator||!answered)return;
+  const item=pool[current],fb=document.getElementById('feedback');if(!item||!fb)return;
+  const isGood=Number(idx)===Number(item.correct);
+  if(isGood){
+    if(!document.getElementById('learnExplainBtn'))fb.insertAdjacentHTML('beforeend',`<div><button id="learnExplainBtn" class="secondary mini-btn" onclick="showExplanation(${item.id},${idx})">🧠 Dlaczego?</button></div>`);
+  }else{
+    fb.className='feedback bad learning-assistant';
+    fb.innerHTML=explanationHTML(item,idx,false);
+  }
+}
 
 // --- Cloud sync using a private GitHub Gist ---
 function syncConfig(){return {token:localStorage.getItem('udt_gist_token')||'',gistId:localStorage.getItem('udt_gist_id')||''}}

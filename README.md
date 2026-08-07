@@ -1,7 +1,15 @@
-# UDT Trainer 5.1.0
+# UDT Trainer 5.2.0 Multi
 
-Aktualizacja dodaje moduł **Ładowarki jednonaczyniowe klasa I** (362 pytania, 50 ilustracji), pełną integrację z treningiem słabości, SRS, statystykami i osiągnięciami.
+Wersja 5.2.0 dodaje **Asystenta Nauki**.
 
-Dodatkowo: animacje interfejsu, puchary za ukończenie modułu (90% opanowania), rozszerzone statystyki oraz animacja celebracji po zdanym symulatorze.
+Najważniejsze zmiany:
+- automatyczne krótkie wyjaśnienie po błędnej odpowiedzi,
+- przycisk „Dlaczego?” także po poprawnej odpowiedzi,
+- rozwijane: wyjaśnienie, wskazówka „Zapamiętaj” i typowa pułapka,
+- po 3 błędach pytanie jest oznaczane jako powracające,
+- po 5 błędach jest oznaczane jako priorytetowa słabość,
+- integracja z istniejącym treningiem słabości i SRS,
+- wszystko działa lokalnie i offline,
+- cache PWA: `udt-trainer-5.2.0-learning-assistant`.
 
-PWA działa offline; cache został podbity do `udt-trainer-5.1.0-loaders-srs`.
+Jeżeli pytanie w bazie ma własne pola `explanation`, `memoryTip` lub `commonMistake`, aplikacja użyje ich. W przeciwnym razie tworzy lokalne wyjaśnienie na podstawie treści pytania i poprawnej odpowiedzi.

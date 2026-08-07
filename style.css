@@ -39,3 +39,24 @@ body{padding-bottom:92px}.coach-hero{display:grid;grid-template-columns:1fr auto
 
 /* UDT 5.1 — motion, module completion and celebration */
 .card:not(.hidden){animation:panelIn .22s ease-out both}.machine-card,.answer,button,.badge,.progress .bar{transition:transform .18s ease,filter .18s ease,border-color .18s ease,box-shadow .18s ease,width .28s ease}.machine-card:active,button:active{transform:scale(.985)}.answer.good{animation:answerGood .28s ease}.answer.bad{animation:answerBad .32s ease}.module-complete{display:inline-flex;margin-top:10px;padding:5px 8px;border-radius:999px;border:1px solid color-mix(in srgb,var(--accent) 55%,var(--line));background:color-mix(in srgb,var(--accent) 12%,var(--card));font-size:11px;font-weight:950;letter-spacing:.04em}.module-complete.hidden{display:none}.badge.unlocked{animation:badgePop .28s ease-out}.confetti-layer{position:fixed;inset:0;z-index:9999;pointer-events:none;overflow:hidden}.confetti-layer span{position:absolute;top:-10vh;animation:confettiFall 2.6s linear forwards;will-change:transform,opacity}@keyframes panelIn{from{opacity:0;transform:translateY(7px) scale(.995)}to{opacity:1;transform:none}}@keyframes answerGood{50%{transform:scale(1.015)}}@keyframes answerBad{25%,75%{transform:translateX(-3px)}50%{transform:translateX(3px)}}@keyframes badgePop{0%{transform:scale(.92)}70%{transform:scale(1.03)}100%{transform:scale(1)}}@keyframes confettiFall{0%{transform:translateY(-12vh) rotate(0deg);opacity:0}10%{opacity:1}100%{transform:translateY(115vh) rotate(720deg);opacity:0}}@media(prefers-reduced-motion:reduce){.card:not(.hidden),.answer.good,.answer.bad,.badge.unlocked,.confetti-layer span{animation:none!important}*{scroll-behavior:auto!important;transition:none!important}}
+
+
+/* UDT Trainer 5.2 — Asystent Nauki */
+.learning-assistant{padding:14px!important;text-align:left}
+.assistant-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.assistant-head .assistant-icon{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:color-mix(in srgb,var(--accent) 16%,var(--card2));font-size:21px}
+.assistant-head b{display:block;font-size:16px}
+.assistant-head .small{display:block;margin-top:2px}
+.assistant-correct{display:grid;gap:4px;padding:11px 12px;border-radius:12px;background:color-mix(in srgb,var(--good) 10%,var(--card2));border:1px solid color-mix(in srgb,var(--good) 35%,var(--line));margin-bottom:10px}
+.assistant-correct span{font-size:12px;color:var(--muted);font-weight:800}
+.assistant-correct b{margin:0!important;line-height:1.35}
+.assistant-section{padding:10px 11px;border-radius:12px;background:var(--card2);border:1px solid var(--line);margin-top:8px}
+.assistant-section b{margin:0 0 4px!important}
+.assistant-section p{margin:0;line-height:1.55}
+.memory-tip{border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
+.common-mistake{border-color:color-mix(in srgb,var(--bad) 34%,var(--line))}
+.assistant-alert{display:grid;gap:3px;margin-top:9px;padding:10px 11px;border-radius:12px;border:1px solid color-mix(in srgb,#f7b731 45%,var(--line));background:color-mix(in srgb,#f7b731 9%,var(--card2))}
+.assistant-alert.high{border-color:color-mix(in srgb,var(--bad) 48%,var(--line));background:color-mix(in srgb,var(--bad) 10%,var(--card2))}
+.assistant-alert b{margin:0!important}
+.assistant-alert span{font-size:13px;line-height:1.45;color:var(--muted)}
+.assistant-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
