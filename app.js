@@ -57,7 +57,28 @@ function enterMachine(id,addHistory=true){
   if(addHistory && (history.state?.udtView!=='module' || history.state?.machine!==id))history.pushState({udtView:'module',machine:id},'');
 }
 function selectMachine(id){enterMachine(id,true)}
-function loadState(){try{const raw=JSON.parse(localStorage.getItem(KEY)||'{}');const x={...defaultState(),...raw};x.stats=x.stats||{};x.favorites=Array.isArray(x.favorites)?x.favorites:[];x.history=Array.isArray(x.history)?x.history:[];x.notes=x.notes||{};x.studyDays=Array.isArray(x.studyDays)?x.studyDays:[];return x}catch(e){return defaultState()}}
+function migrateLegacySRS(x){
+  x=x&&typeof x==='object'?x:{};
+  x.stats=x.stats&&typeof x.stats==='object'?x.stats:{};
+  // 5.3: state.stats jest jedynym źródłem prawdy dla SRS.
+  // Starsze 5.2 zapisywało równolegle state.srs; migrujemy tylko brakujące dane,
+  // a następnie usuwamy duplikat, żeby dashboard i sesje liczyły dokładnie to samo.
+  const legacy=x.srs&&typeof x.srs==='object'?x.srs:null;
+  if(!legacy)return x;
+  for(const [id,old] of Object.entries(legacy)){
+    const st=x.stats[id];
+    if(!st||!old)continue;
+    const hasCanonical=Number(st.lastAttempt)>0||Number(st.due)>0||Number(st.srsLevel)>0;
+    if(!hasCanonical){
+      st.srsLevel=Math.max(0,Math.min(6,Number(old.box)||0));
+      st.due=Number(old.due)||0;
+      st.lastAttempt=Number(old.last)||0;
+    }
+  }
+  delete x.srs;
+  return x;
+}
+function loadState(){try{const raw=JSON.parse(localStorage.getItem(KEY)||'{}');const x={...defaultState(),...raw};x.stats=x.stats||{};x.favorites=Array.isArray(x.favorites)?x.favorites:[];x.history=Array.isArray(x.history)?x.history:[];x.notes=x.notes||{};x.studyDays=Array.isArray(x.studyDays)?x.studyDays:[];return migrateLegacySRS(x)}catch(e){return defaultState()}}
 function saveState(){localStorage.setItem(KEY,JSON.stringify(state));updateDashboard();updateModuleBadges()}
 function statFor(id){
   const k=String(id);
@@ -72,6 +93,16 @@ function statFor(id){
   return st
 }
 const SRS_INTERVAL_DAYS=[0,1,3,7,14,30,60];
+function migrateAllStoredSRS(){
+  for(const m of Object.values(MACHINE_META)){
+    try{
+      const raw=localStorage.getItem(m.key);if(!raw)continue;
+      const parsed=JSON.parse(raw);if(!parsed?.srs)continue;
+      localStorage.setItem(m.key,JSON.stringify(migrateLegacySRS(parsed)));
+    }catch(e){console.warn('SRS migration skipped for',m.key,e)}
+  }
+}
+migrateAllStoredSRS();
 function updateSRS(st,isGood){
   const now=Date.now();
   st.lastAttempt=now;
@@ -130,14 +161,18 @@ function startExamSimulator(){if(!confirm('Uruchomić symulację PRO: 30 pytań,
 function startExamTimer(){clearInterval(examTimerHandle);const stat=document.getElementById('timerStat'),out=document.getElementById('examTimer');if(!examSimulator){stat.classList.add('hidden');out.classList.remove('timer-danger');return}stat.classList.remove('hidden');const tick=()=>{const left=Math.max(0,examDeadline-Date.now()),sec=Math.ceil(left/1000),m=Math.floor(sec/60),s=sec%60;out.textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;out.classList.toggle('timer-danger',sec<=300);if(left<=0){clearInterval(examTimerHandle);alert('Czas minął. Test zostanie zakończony.');finish(true)}};tick();examTimerHandle=setInterval(tick,1000)}
 function startNew(customPool=null){document.getElementById('setupError').textContent='';if(!customPool)examSimulator=false;mode=document.getElementById('mode').value;let list=customPool||filteredQuestions();let n=Math.max(1,Math.min(parseInt(document.getElementById('count').value||20,10),list.length));if(!list.length){document.getElementById('setupError').textContent='Ta pula jest pusta. Najpierw przerób kilka pytań albo dodaj ulubione.';return}pool=customPool?[...customPool]:list.slice(0,n);current=0;correct=0;answered=false;answersLog=[];showQuiz();saveSession();render()}
 function showQuiz(){document.getElementById('setup').classList.add('hidden');document.getElementById('dashboard').classList.add('hidden');document.getElementById('result').classList.add('hidden');document.getElementById('stats').classList.add('hidden');const q=document.getElementById('quiz');q.classList.remove('hidden');q.classList.toggle('exam-mode',examSimulator)}
-function render(){answered=false;const item=pool[current],saved=examAnswers[current];if(examSimulator&&saved)answered=true;document.getElementById('qid').textContent=`Pytanie ${item.id}`;document.getElementById('q').textContent=clean(item.q);document.getElementById('pos').textContent=`${current+1}/${pool.length}`;document.getElementById('ok').textContent=correct;document.getElementById('pct').textContent=`${Math.round(correct/Math.max(1,answersLog.length)*100)||0}%`;document.getElementById('bar').style.width=`${(examSimulator?(current+1):current)/pool.length*100}%`;document.getElementById('feedback').className='feedback';document.getElementById('feedback').textContent='';document.getElementById('next').classList.add('hidden');document.getElementById('favBtn').textContent=state.favorites.includes(item.id)?'★':'☆';document.getElementById('noteText').value=state.notes[item.id]||'';const imageBox=document.getElementById('imageBox');imageBox.innerHTML='';if(item.img){const img=document.createElement('img');img.className='qimg';img.src=item.img;img.alt='Rysunek do pytania';img.onclick=()=>openImage(item.img);imageBox.appendChild(img)}const box=document.getElementById('answers');box.innerHTML='';item.a.forEach((ans,idx)=>{const b=document.createElement('button');b.className='answer';b.textContent=`${String.fromCharCode(65+idx)}. ${clean(ans)}`;if(saved&&saved.chosen===idx)b.classList.add('selected');b.onclick=()=>choose(idx);box.appendChild(b)});renderExamNavigator();window.scrollTo({top:0,behavior:'smooth'})}
+let answerStartedAt=Date.now();
+const answerEffects=[];
+function addAnswerEffect(fn){if(typeof fn==='function'&&!answerEffects.includes(fn))answerEffects.push(fn)}
+function runAnswerEffects(ctx){for(const fn of answerEffects){try{fn(ctx)}catch(e){console.warn('Answer effect failed',e)}}}
+function render(){answerStartedAt=Date.now();answered=false;const item=pool[current],saved=examAnswers[current];if(examSimulator&&saved)answered=true;document.getElementById('qid').textContent=`Pytanie ${item.id}`;document.getElementById('q').textContent=clean(item.q);document.getElementById('pos').textContent=`${current+1}/${pool.length}`;document.getElementById('ok').textContent=correct;document.getElementById('pct').textContent=`${Math.round(correct/Math.max(1,answersLog.length)*100)||0}%`;document.getElementById('bar').style.width=`${(examSimulator?(current+1):current)/pool.length*100}%`;document.getElementById('feedback').className='feedback';document.getElementById('feedback').textContent='';document.getElementById('next').classList.add('hidden');document.getElementById('favBtn').textContent=state.favorites.includes(item.id)?'★':'☆';document.getElementById('noteText').value=state.notes[item.id]||'';const imageBox=document.getElementById('imageBox');imageBox.innerHTML='';if(item.img){const img=document.createElement('img');img.className='qimg';img.src=item.img;img.alt='Rysunek do pytania';img.onclick=()=>openImage(item.img);imageBox.appendChild(img)}const box=document.getElementById('answers');box.innerHTML='';item.a.forEach((ans,idx)=>{const b=document.createElement('button');b.className='answer';b.textContent=`${String.fromCharCode(65+idx)}. ${clean(ans)}`;if(saved&&saved.chosen===idx)b.classList.add('selected');b.onclick=()=>choose(idx);box.appendChild(b)});renderExamNavigator();window.scrollTo({top:0,behavior:'smooth'})}
 function renderExamNavigator(){const nav=document.getElementById('examNavigator');if(!nav)return;if(!examSimulator){nav.innerHTML='';return}nav.innerHTML=pool.map((q,i)=>`<button aria-label="Pytanie ${i+1}${examAnswers[i]?', odpowiedziane':', bez odpowiedzi'}${examFlags.has(i)?', oznaczone':''}" class="${i===current?'current ':''}${examAnswers[i]?'done ':'unanswered '}${examFlags.has(i)?'flagged':''}" onclick="goToExamQuestion(${i})">${i+1}</button>`).join('');const f=document.getElementById('flagBtn');if(f)f.textContent=examFlags.has(current)?'🚩 Oznaczone':'🚩 Oznacz';updateExamStatus()}
 function updateExamStatus(){if(!examSimulator)return;const answered=Object.keys(examAnswers).length;document.getElementById('examAnswered').textContent=answered;document.getElementById('examUnanswered').textContent=pool.length-answered;document.getElementById('examFlagged').textContent=examFlags.size}
 function goToExamQuestion(i){if(!examSimulator||i<0||i>=pool.length)return;current=i;render();saveSession()}
 function examPrev(){goToExamQuestion(Math.max(0,current-1))}
 function examNext(){goToExamQuestion(Math.min(pool.length-1,current+1))}
 function toggleExamFlag(){if(examFlags.has(current))examFlags.delete(current);else examFlags.add(current);renderExamNavigator();saveSession()}
-function choose(idx){if(answered&&!examSimulator)return;const item=pool[current],buttons=[...document.querySelectorAll('.answer')],isGood=idx===item.correct;if(examSimulator){const old=examAnswers[current];if(old){correct-=old.isGood?1:0;answersLog=answersLog.filter(x=>x.index!==current)}examAnswers[current]={chosen:idx,correct:item.correct,isGood};correct+=isGood?1:0;answersLog.push({index:current,id:item.id,chosen:idx,correct:item.correct,isGood});answered=true;buttons.forEach((b,i)=>b.classList.toggle('selected',i===idx));document.getElementById('ok').textContent=correct;document.getElementById('pct').textContent=`${Math.round(correct/Math.max(1,answersLog.length)*100)}%`;renderExamNavigator();saveSession();return}answered=true;buttons.forEach(b=>b.disabled=true);if(isGood)correct++;const st=statFor(item.id);st.attempts++;registerStudyDay();state.xp=(state.xp||0)+(isGood?10:3);if(isGood){st.correct++;st.weakStreak=(st.wrong||0)>0?(Number(st.weakStreak)||0)+1:0;updateSRS(st,true);state.totalCorrect=(state.totalCorrect||0)+1;state.currentStreakCorrect=(state.currentStreakCorrect||0)+1;state.bestStreakCorrect=Math.max(state.bestStreakCorrect||0,state.currentStreakCorrect)}else{st.wrong++;st.weakStreak=0;updateSRS(st,false);state.currentStreakCorrect=0}answersLog.push({id:item.id,chosen:idx,correct:item.correct,isGood});buttons[item.correct]?.classList.add('good');if(!isGood)buttons[idx]?.classList.add('bad');const fb=document.getElementById('feedback');fb.className=`feedback ${isGood?'good':'bad'}`;fb.textContent=isGood?'Dobrze. Jedziemy dalej.':`Źle. Poprawna: ${String.fromCharCode(65+item.correct)}. ${clean(item.correctText)}`;document.getElementById('ok').textContent=correct;document.getElementById('pct').textContent=`${Math.round(correct/(current+1)*100)}%`;document.getElementById('bar').style.width=`${(current+1)/pool.length*100}%`;document.getElementById('next').classList.remove('hidden');saveState();saveSession()}
+function choose(idx){if(answered&&!examSimulator)return;const item=pool[current],buttons=[...document.querySelectorAll('.answer')],isGood=idx===item.correct;if(examSimulator){const old=examAnswers[current];if(old){correct-=old.isGood?1:0;answersLog=answersLog.filter(x=>x.index!==current)}examAnswers[current]={chosen:idx,correct:item.correct,isGood};correct+=isGood?1:0;answersLog.push({index:current,id:item.id,chosen:idx,correct:item.correct,isGood});answered=true;buttons.forEach((b,i)=>b.classList.toggle('selected',i===idx));document.getElementById('ok').textContent=correct;document.getElementById('pct').textContent=`${Math.round(correct/Math.max(1,answersLog.length)*100)}%`;renderExamNavigator();saveSession();return}answered=true;buttons.forEach(b=>b.disabled=true);if(isGood)correct++;const st=statFor(item.id);st.attempts++;registerStudyDay();state.xp=(state.xp||0)+(isGood?10:3);if(isGood){st.correct++;st.weakStreak=(st.wrong||0)>0?(Number(st.weakStreak)||0)+1:0;updateSRS(st,true);state.totalCorrect=(state.totalCorrect||0)+1;state.currentStreakCorrect=(state.currentStreakCorrect||0)+1;state.bestStreakCorrect=Math.max(state.bestStreakCorrect||0,state.currentStreakCorrect)}else{st.wrong++;st.weakStreak=0;updateSRS(st,false);state.currentStreakCorrect=0}answersLog.push({id:item.id,chosen:idx,correct:item.correct,isGood});buttons[item.correct]?.classList.add('good');if(!isGood)buttons[idx]?.classList.add('bad');const fb=document.getElementById('feedback');fb.className=`feedback ${isGood?'good':'bad'}`;fb.textContent=isGood?'Dobrze. Jedziemy dalej.':`Źle. Poprawna: ${String.fromCharCode(65+item.correct)}. ${clean(item.correctText)}`;document.getElementById('ok').textContent=correct;document.getElementById('pct').textContent=`${Math.round(correct/(current+1)*100)}%`;document.getElementById('bar').style.width=`${(current+1)/pool.length*100}%`;document.getElementById('next').classList.remove('hidden');const elapsed=Math.max(1,Math.round((Date.now()-answerStartedAt)/1000));runAnswerEffects({item,idx,isGood,elapsed});saveState();saveSession()}
 function nextQuestion(){if(!answered)return;if(examSimulator){examNext();return}current++;if(current>=pool.length)finish(true);else{saveSession();render()}}
 function launchConfetti(){
   const layer=document.createElement('div');layer.className='confetti-layer';document.body.appendChild(layer);
@@ -181,7 +216,7 @@ const ACHIEVEMENTS=[
 ];
 function showAchievements(){hideMainPanels();document.getElementById('achievements').classList.remove('hidden');const unlocked=ACHIEVEMENTS.filter(a=>a.ok()).length;document.getElementById('achievementSummary').textContent=`Odblokowane: ${unlocked}/${ACHIEVEMENTS.length}`;document.getElementById('badgeGrid').innerHTML=ACHIEVEMENTS.map(a=>`<div class="badge ${a.ok()?'unlocked':''}"><span class="emoji">${a.ok()?a.e:'🔒'}</span><b>${a.n}</b><span class="small">${a.d}</span></div>`).join('')}
 function exportData(){const payload={machine:activeMachine,machineName:MACHINE_META[activeMachine].name,exportedAt:new Date().toISOString(),state};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`udt-${activeMachine}-postepy.json`;a.click();URL.revokeObjectURL(a.href)}
-function importData(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result),payload=x.state?x.state:x;if(x.machine&&x.machine!==activeMachine){alert(`Ten plik należy do modułu: ${x.machineName||x.machine}. Najpierw przełącz moduł.`);return}if(!payload.stats||!Array.isArray(payload.favorites))throw 0;state={...defaultState(),...payload};saveState();applyTheme();alert('Postępy zaimportowane.')}catch(e){alert('Nieprawidłowy plik postępów.')}};r.readAsText(f);ev.target.value=''}
+function importData(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result),payload=x.state?x.state:x;if(x.machine&&x.machine!==activeMachine){alert(`Ten plik należy do modułu: ${x.machineName||x.machine}. Najpierw przełącz moduł.`);return}if(!payload.stats||!Array.isArray(payload.favorites))throw 0;state=migrateLegacySRS({...defaultState(),...payload});saveState();applyTheme();alert('Postępy zaimportowane.')}catch(e){alert('Nieprawidłowy plik postępów.')}};r.readAsText(f);ev.target.value=''}
 function resetProgress(){if(confirm('Na pewno usunąć wszystkie statystyki, historię i ulubione?')){state=defaultState();saveState();localStorage.removeItem(SESSION_KEY);hideStats()}}
 
 let __lastDiagnosticText='';
@@ -203,7 +238,7 @@ function diagnosticChecks(){
   ['Funkcje silnika',funcs.every(n=>typeof window[n]==='function'),funcs.filter(n=>typeof window[n]!=='function').join(', ')||'komplet'],
   ['Pamięć lokalna',(()=>{try{const k='__udt_test__';localStorage.setItem(k,'1');localStorage.removeItem(k);return true}catch(e){return false}})(),'localStorage'],
   ['Obrazki w bazie',QUESTIONS.filter(q=>q.img).length===MACHINE_META[activeMachine].images,`${QUESTIONS.filter(q=>q.img).length} / ${MACHINE_META[activeMachine].images} ilustracji`],
-  ['Spójność wersji',document.title.includes('5.2.0')&&document.querySelector('h1')?.textContent.includes('5.2.0')&&document.querySelector('.footer')?.textContent.includes('5.2.0'),'tytuł, nagłówek i stopka']
+  ['Spójność wersji',document.title.includes('5.3.0')&&document.querySelector('h1')?.textContent.includes('5.3.0')&&document.querySelector('.footer')?.textContent.includes('5.3.0'),'tytuł, nagłówek i stopka']
  ];
  return checks;
 }
@@ -212,7 +247,7 @@ function runDiagnostics(){
  const body=document.getElementById('diagnosticsBody');
  body.innerHTML=checks.map(([name,ok,detail])=>`<div class="diag-item"><span><b>${escapeHtml(name)}</b><br><span class="small">${escapeHtml(String(detail))}</span></span><span class="${ok?'diag-ok':'diag-bad'}">${ok?'OK':'BŁĄD'}</span></div>`).join('');
  const passed=checks.filter(x=>x[1]).length;
- __lastDiagnosticText=`UDT Trainer 5.2.0 — diagnostyka\n${checks.map(([n,o,d])=>`${o?'OK':'BŁĄD'} | ${n} | ${d}`).join('\n')}\nWynik: ${passed}/${checks.length}`;
+ __lastDiagnosticText=`UDT Trainer 5.3.0 — diagnostyka\n${checks.map(([n,o,d])=>`${o?'OK':'BŁĄD'} | ${n} | ${d}`).join('\n')}\nWynik: ${passed}/${checks.length}`;
 }
 function showDiagnostics(){hideMainPanels();document.getElementById('diagnostics').classList.remove('hidden');runDiagnostics()}
 async function copyDiagnostics(){

@@ -1,8 +1,7 @@
-/* UDT Trainer 5.2.0 — coach dashboard, SRS, readiness, activity calendar, settings */
-const UDT4_VERSION='5.2.0';
+/* UDT Trainer 5.3.0 — coach dashboard, SRS, readiness, activity calendar, settings */
+const UDT4_VERSION='5.3.0';
 
 function ensureProState(){
-  state.srs=state.srs||{};
   state.dailyGoal=Number(state.dailyGoal)||25;
   state.answerTimes=state.answerTimes||{};
   state.settings=state.settings||{autoExplain:false,compact:false};
@@ -20,30 +19,19 @@ function readinessScore(){
   return Math.max(0,Math.min(99,Math.round((coverage*.25+mastery*.35+accuracy*.25+exam*.15)*100)));
 }
 function readinessLabel(v){if(v>=90)return 'Bardzo wysoka';if(v>=80)return 'Wysoka';if(v>=70)return 'Dobra';if(v>=55)return 'Średnia';if(v>0)return 'Budujemy';return 'Brak danych'}
-function dueQuestions(){ensureProState();const now=Date.now();return QUESTIONS.filter(q=>{const x=state.srs[q.id];return x&&(!x.due||x.due<=now)}).sort((a,b)=>(state.srs[a.id]?.due||0)-(state.srs[b.id]?.due||0))}
+function dueQuestions(){return srsDueQuestions().sort((a,b)=>(state.stats[a.id]?.due||0)-(state.stats[b.id]?.due||0))}
 function unseenQuestions(){return QUESTIONS.filter(q=>(state.stats[q.id]?.attempts||0)===0)}
-function srsUpdate(id,isGood){ensureProState();const old=state.srs[id]||{box:0,streak:0};let box=old.box||0,streak=old.streak||0;if(isGood){streak++;box=Math.min(5,box+1)}else{streak=0;box=Math.max(0,box-2)};const gapsGood=[0,1,3,7,14,30],days=isGood?gapsGood[box]:0.25;state.srs[id]={box,streak,last:Date.now(),due:Date.now()+days*86400000};}
 function smartSrsPool(n=20){ensureProState();const due=dueQuestions(),unseen=unseenQuestions();const hard=QUESTIONS.filter(q=>(state.stats[q.id]?.wrong||0)>0).sort((a,b)=>smartWeight(b)-smartWeight(a));const merged=[...due,...hard,...unseen,...QUESTIONS];const seen=new Set();return merged.filter(q=>!seen.has(q.id)&&seen.add(q.id)).slice(0,n)}
 function startCoachSession(){document.getElementById('mode').value='learn';startNew(smartSrsPool(Math.max(10,Math.min(50,state.dailyGoal||25))))}
 function startQuickReview(){document.getElementById('mode').value='learn';const p=smartSrsPool(10);startNew(p.length?p:shuffle([...QUESTIONS]).slice(0,10))}
 
-let __answerStarted=Date.now();
-const __udt4Render=window.render;
-window.render=function(){__udt4Render();__answerStarted=Date.now();};
-const __udt4Choose=window.choose;
-window.choose=function(idx){
-  const item=pool[current]; const already=answered;
-  __udt4Choose(idx);
-  if(!examSimulator && item && !already){
-    ensureProState();
-    const good=idx===item.correct;
-    srsUpdate(item.id,good);
-    const elapsed=Math.max(1,Math.round((Date.now()-__answerStarted)/1000));
-    const t=state.answerTimes[item.id]||{count:0,total:0};t.count++;t.total+=elapsed;state.answerTimes[item.id]=t;
-    localStorage.setItem(KEY,JSON.stringify(state));
-    if(state.settings?.autoExplain&&!good)setTimeout(()=>showExplanation(item.id,idx),30);
-  }
-};
+// 5.3: czas odpowiedzi i opcjonalne wyjaśnienie są częścią wspólnego pipeline,
+// bez kolejnego wrappera na render()/choose().
+addAnswerEffect(({item,idx,isGood,elapsed})=>{
+  ensureProState();
+  const t=state.answerTimes[item.id]||{count:0,total:0};t.count++;t.total+=elapsed;state.answerTimes[item.id]=t;
+  if(state.settings?.autoExplain&&!isGood)setTimeout(()=>showExplanation(item.id,idx),30);
+});
 
 function todayAnswered(){const today=localDateKey();return state.history.filter(h=>localDateKey(h.date)===today).reduce((s,h)=>s+(h.count||0),0)}
 function estimatedDays(){const remaining=unseenQuestions().length;return remaining?Math.max(1,Math.ceil(remaining/Math.max(1,state.dailyGoal||25))):0}
@@ -55,8 +43,8 @@ function averageAnswerTime(){ensureProState();const vals=Object.values(state.ans
 
 function ensureUdt4UI(){
   ensureProState();
-  const title=document.getElementById('appTitle');if(title)title.textContent='UDT Trainer 5.2.0';
-  document.title='UDT Trainer 5.2.0 — trener operatora';
+  const title=document.getElementById('appTitle');if(title)title.textContent='UDT Trainer 5.3.0';
+  document.title='UDT Trainer 5.3.0 — trener operatora';
   const dash=document.getElementById('dashboard');
   if(dash&&!document.getElementById('coachHero')){
     dash.insertAdjacentHTML('afterbegin',`<section id="coachHero" class="coach-hero"><div><span class="eyebrow">TWÓJ TRENER</span><h2 id="coachGreeting">Gotowy do nauki?</h2><p id="coachPlan" class="small"></p><div class="row coach-buttons"><button onclick="startCoachSession()">▶ Rozpocznij plan dnia</button><button class="secondary" onclick="startQuickReview()">🔁 Szybka powtórka</button></div></div><div class="readiness"><span class="small">Szansa zdania*</span><strong id="readinessValue">0%</strong><span id="readinessLabel" class="small">Brak danych</span></div></section>
@@ -78,8 +66,8 @@ function ensureUdt4UI(){
   if(!document.getElementById('bottomNav')){
     document.body.insertAdjacentHTML('beforeend',`<nav id="bottomNav" class="bottom-nav"><button onclick="backToMenu()"><span>🏠</span>Start</button><button onclick="showQuestionBrowser()"><span>🔎</span>Baza</button><button class="nav-main" onclick="startCoachSession()"><span>▶</span>Nauka</button><button onclick="showStats()"><span>📊</span>Postęp</button><button onclick="showSettings()"><span>⚙️</span>Więcej</button></nav>`);
   }
-  const footer=document.querySelector('.footer');if(footer)footer.textContent='UDT Trainer 5.2.0 — trener operatora • PWA offline • inteligentne powtórki • dane lokalne';
-  const diag=document.querySelector('#diagnostics .version-pill');if(diag)diag.textContent='Wersja 5.2.0';
+  const footer=document.querySelector('.footer');if(footer)footer.textContent='UDT Trainer 5.3.0 — trener operatora • PWA offline • inteligentne powtórki • dane lokalne';
+  const diag=document.querySelector('#diagnostics .version-pill');if(diag)diag.textContent='Wersja 5.3.0';
 }
 function weaknessRowsHTML(){
   const list=weaknessQuestions().slice(0,5);

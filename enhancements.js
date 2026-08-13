@@ -1,6 +1,6 @@
 
-/* UDT Trainer 5.2.0 — PWA, offline, aktualizacje, chmura, statystyki, wyjaśnienia */
-const UDT_VERSION='5.2.0';
+/* UDT Trainer 5.3.0 — PWA, offline, aktualizacje, chmura, statystyki, wyjaśnienia */
+const UDT_VERSION='5.3.0';
 let deferredInstallPrompt=null;
 let newWorkerWaiting=null;
 
@@ -174,19 +174,16 @@ window.openQuestionDetail=function(id){
 function toggleDetailFavorite(id){const i=state.favorites.indexOf(id);if(i>=0)state.favorites.splice(i,1);else state.favorites.push(id);saveState();openQuestionDetail(id)}
 
 // Po odpowiedzi: przy błędzie asystent rozwija się automatycznie, przy poprawnej zostaje przycisk „Dlaczego?”.
-const originalChoose=window.choose;
-window.choose=function(idx){
-  originalChoose(idx);
-  if(examSimulator||!answered)return;
-  const item=pool[current],fb=document.getElementById('feedback');if(!item||!fb)return;
-  const isGood=Number(idx)===Number(item.correct);
+// 5.3: efekt jest rejestrowany w jednym pipeline odpowiedzi zamiast nadpisywać choose().
+addAnswerEffect(({item,idx,isGood})=>{
+  const fb=document.getElementById('feedback');if(!item||!fb)return;
   if(isGood){
     if(!document.getElementById('learnExplainBtn'))fb.insertAdjacentHTML('beforeend',`<div><button id="learnExplainBtn" class="secondary mini-btn" onclick="showExplanation(${item.id},${idx})">🧠 Dlaczego?</button></div>`);
   }else{
     fb.className='feedback bad learning-assistant';
     fb.innerHTML=explanationHTML(item,idx,false);
   }
-}
+});
 
 // --- Cloud sync using a private GitHub Gist ---
 function syncConfig(){return {token:localStorage.getItem('udt_gist_token')||'',gistId:localStorage.getItem('udt_gist_id')||''}}
