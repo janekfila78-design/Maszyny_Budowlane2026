@@ -94,40 +94,51 @@ function learningAssistantData(q,selectedIndex=null){
   const sourceTip=clean(q.memoryTip||q.memory_tip||'');
   const sourceMistake=clean(q.commonMistake||q.common_mistake||'');
 
-  let short=sourceExplanation;
+  let short='';
+  let technical=sourceExplanation;
   let expanded='';
   let tip=sourceTip;
   let mistake=sourceMistake;
 
-  if(!short){
+  if(!technical){
     if(/lin(ia|ii|ię|ie).*elektro|przewod.*(kv|v)|napięci/i.test(qtxt)){
-      short=`Klucz wskazuje odpowiedź ${letter(correctIndex)}: „${correct}”. W pytaniach o linie elektroenergetyczne decydują przede wszystkim zakres napięcia i wymagana odległość — pomylenie jednego z nich zmienia wynik.`;
+      short=`Po ludzku: najpierw sprawdź napięcie linii, a potem dobierz wymaganą bezpieczną odległość. Tu nie warto zgadywać — konkretna wartość decyduje o poprawnej odpowiedzi.`;
+      technical=`Technicznie: dla danego zakresu napięcia obowiązuje określona minimalna odległość bezpiecznej pracy. Klucz wskazuje ${letter(correctIndex)}: „${correct}”.`;
       expanded=`Najpierw znajdź w treści napięcie linii, a dopiero potem dopasuj wartość z odpowiedzi. Nie wybieraj odległości „na wyczucie”: w takich pytaniach konkretna wartość jest częścią zasady bezpieczeństwa.`;
       tip=tip||`Napięcie → właściwa odległość. Tu: ${correct}.`;
     }else if(/klin.*odłam|wykop|nasyp|skar(p|py)|odległo/i.test(qtxt)){
-      short=`Poprawna jest odpowiedź ${letter(correctIndex)}: „${correct}”. Pytanie sprawdza konkretny warunek bezpiecznego ustawienia maszyny względem wykopu, nasypu albo strefy zagrożenia.`;
+      short=`Po ludzku: pytanie sprawdza, gdzie można bezpiecznie ustawić maszynę, żeby grunt lub krawędź wykopu nie stworzyły zagrożenia. Najważniejsze jest, od którego miejsca liczysz wymaganą odległość.`;
+      technical=`Technicznie: trzeba zachować warunek bezpiecznego ustawienia maszyny względem wykopu, nasypu lub strefy klina odłamu. Klucz wskazuje ${letter(correctIndex)}: „${correct}”.`;
       expanded=`Przy takich zadaniach najpierw ustal, od którego punktu mierzona jest odległość i czy pytanie dotyczy dna, górnej krawędzi, klina odłamu czy innego elementu. Dopiero potem porównuj liczby z odpowiedzi.`;
       tip=tip||`Zapamiętaj dokładne sformułowanie klucza: ${correct}.`;
     }else if(/pierwsz.*pomoc|poszkod|krwaw|oparze|resuscyt|aed|oddech|tętn|padacz|kręgosłup|zatruc/i.test(qtxt)){
-      short=`Klucz wskazuje ${letter(correctIndex)}: „${correct}”. W pierwszej pomocy wybieraj działanie, które w pierwszej kolejności zabezpiecza życie i nie pogarsza stanu poszkodowanego.`;
+      short=`Po ludzku: wybierz czynność, która najpierw chroni życie poszkodowanego i nie robi mu dodatkowej krzywdy. Nie komplikuj — liczy się właściwa kolejność działania.`;
+      technical=`Technicznie: priorytetem jest rozpoznanie bezpośredniego zagrożenia życia i wykonanie właściwej czynności ratunkowej. Klucz wskazuje ${letter(correctIndex)}: „${correct}”.`;
       expanded=`Czytaj pytanie jak krótką sytuację ratunkową: co zagraża bezpośrednio życiu, czego nie wolno robić i jaka czynność jest najpilniejsza. Odpowiedzi zawierające ryzykowne manipulowanie poszkodowanym lub podawanie przypadkowych środków są częstymi pułapkami.`;
       tip=tip||`Najpierw bezpieczeństwo i czynność ratująca życie.`;
     }else if(/olej|silnik|hydraul|ciśn|smar|filtr|płyn|chłodz|paliw/i.test(qtxt)){
-      short=`Poprawna jest ${letter(correctIndex)}: „${correct}”. To pytanie dotyczy prawidłowej eksploatacji maszyny — właściwa odpowiedź chroni układ przed zużyciem, przegrzaniem albo uszkodzeniem.`;
+      short=`Po ludzku: chodzi o takie obchodzenie się z maszyną, żeby jej nie przegrzać, nie zatrzeć i nie uszkodzić. Sprawdź, czy pytanie mówi o poziomie, temperaturze, ciśnieniu albo jakości płynu czy oleju.`;
+      technical=`Technicznie: prawidłowa eksploatacja utrzymuje parametry układu w wymaganym zakresie i ogranicza zużycie lub uszkodzenie podzespołów. Klucz wskazuje ${letter(correctIndex)}: „${correct}”.`;
       expanded=`Zwróć uwagę, czy pytanie dotyczy poziomu, jakości, temperatury, ciśnienia lub kolejności obsługi. W technice drobna różnica w warunku często oznacza zupełnie inną czynność serwisową.`;
       tip=tip||`Eksploatacja: szukaj odpowiedzi bezpiecznej dla maszyny i układu.`;
     }else if(/zabron|dozwol|wolno|należy|powin|obowiąz|może.*prac/i.test(qtxt)){
-      short=`Klucz wskazuje ${letter(correctIndex)}: „${correct}”. Tutaj najważniejsze jest słowo określające obowiązek, zakaz albo warunek dopuszczenia do pracy.`;
+      short=`Po ludzku: złap słowo, które mówi, czy coś MUSISZ zrobić, MOŻESZ zrobić albo czego NIE WOLNO robić. Jedno takie słowo potrafi odwrócić sens całej odpowiedzi.`;
+      technical=`Technicznie: pytanie dotyczy obowiązku, zakazu lub warunku dopuszczenia do pracy. Klucz wskazuje ${letter(correctIndex)}: „${correct}”.`;
       expanded=`W pytaniach regulaminowych nie wystarczy, że odpowiedź „brzmi rozsądnie”. Porównaj dokładnie słowa „należy”, „można”, „nie wolno”, „zawsze”, „tylko gdy” — właśnie na takich różnicach budowane są odpowiedzi egzaminacyjne.`;
       tip=tip||`Czytaj słowa graniczne: należy / wolno / nie wolno / tylko gdy.`;
     }else{
-      short=`Poprawna jest odpowiedź ${letter(correctIndex)}: „${correct}”. Kluczowe jest dokładne powiązanie treści pytania z tym sformułowaniem, a nie zapamiętanie samej litery.`;
+      short=`Po ludzku: nie zapamiętuj, że „tu było B”. Zapamiętaj, o co pytają i jaki sens ma poprawna odpowiedź: „${correct}”.`;
+      technical=`Technicznie: poprawna jest odpowiedź ${letter(correctIndex)}: „${correct}”. Powiąż treść pytania z zasadą lub pojęciem, którego dotyczy odpowiedź.`;
       expanded=`Przeczytaj jeszcze raz pytanie bez patrzenia na warianty, nazwij własnymi słowami czego ono dotyczy, a potem zestaw to z poprawną odpowiedzią. To ogranicza zgadywanie po układzie A/B/C.`;
       tip=tip||`Zapamiętaj sens: ${correct}.`;
     }
   }else{
-    expanded=clean(q.explanationLong||q.explanation_long||'')||short;
+    short=`Po ludzku: ${technical}`;
+    expanded=clean(q.explanationLong||q.explanation_long||'')||technical;
   }
+
+  if(!short) short=`Po ludzku: poprawna odpowiedź to „${correct}”. Skup się na sensie pytania i zasadzie, która prowadzi właśnie do tej odpowiedzi.`;
+  if(!technical) technical=`Technicznie: klucz wskazuje ${letter(correctIndex)}: „${correct}”.`;
 
   if(!mistake && selectedIndex!==null && selectedIndex!==undefined && Number(selectedIndex)!==correctIndex){
     mistake=`Wybrałeś ${letter(selectedIndex)}: „${selected}”. Klucz wskazuje ${letter(correctIndex)}. Porównaj oba warianty słowo po słowie — różnica, która wygląda na drobną, często jest właśnie pułapką egzaminacyjną.`;
@@ -135,7 +146,7 @@ function learningAssistantData(q,selectedIndex=null){
     mistake=`Nie ucz się litery ${letter(correctIndex)}. Ucz się związku: pytanie → „${correct}”.`;
   }
 
-  return {short,expanded,tip,mistake,correct,correctIndex};
+  return {short,technical,expanded,tip,mistake,correct,correctIndex};
 }
 function learningStatusFor(q){
   const st=state.stats[q.id];
@@ -151,6 +162,7 @@ function explanationHTML(q,selectedIndex=null,expanded=false){
   return `<div class="assistant-head"><span class="assistant-icon">🧠</span><div><b>Asystent Nauki</b><span class="small">Wyjaśnienie działa także offline</span></div></div>
     <div class="assistant-correct"><span>✅ Poprawna odpowiedź</span><b>${letter(d.correctIndex)}. ${escapeHtml(d.correct)}</b></div>
     <div class="assistant-section"><b>💡 Dlaczego?</b><p>${escapeHtml(d.short)}</p></div>
+    <div class="assistant-section assistant-technical"><b>⚙️ Technicznie</b><p>${escapeHtml(d.technical)}</p></div>
     ${expanded?`<div class="assistant-section assistant-more"><b>📖 Rozszerzenie</b><p>${escapeHtml(d.expanded)}</p></div>
     <div class="assistant-section memory-tip"><b>🧠 Zapamiętaj</b><p>${escapeHtml(d.tip)}</p></div>
     <div class="assistant-section common-mistake"><b>⚠️ Pułapka</b><p>${escapeHtml(d.mistake)}</p></div>`:''}
