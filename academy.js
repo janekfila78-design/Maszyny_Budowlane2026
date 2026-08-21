@@ -1,4 +1,4 @@
-const ACADEMY_VERSION='6.0.0';
+const ACADEMY_VERSION='6.1.0';
 const ACADEMY_KEY='udt_academy_v1';
 let academyData=loadAcademyData();
 let academyGame=null,academyTechIndex=0,academyExam=null;

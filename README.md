@@ -1,50 +1,90 @@
-# UDT Trainer 5.6.0
+# Maszyny Budowlane 2026 — UDT/WIT Trainer
 
-## Nowości w trybie ustnym
-- pasek postępu „Zadanie X/Y”
-- statusy: Umiem / Jeszcze ćwiczę / Do powtórki
-- kolejność po kolei lub losowa
-- timer 60, 90, 120 sekund albo bez limitu
-- statystyki odpowiedzi ustnych i lista najtrudniejszych zadań
-- tryb Egzaminator z maksymalnie trzema pytaniami uzupełniającymi
-- nagrywanie, transkrypcja, lokalna analiza i zapis do wspólnego SRS
+Mobilna aplikacja PWA do nauki pytań teoretycznych oraz przygotowania do części praktycznej egzaminów operatorów. Działa offline i zapisuje postępy lokalnie.
 
-# UDT Trainer 5.3.0 Multi
+## Wersja bieżąca: 6.1.0 — Mentor 2.0
 
-Wersja 5.3.0 porządkuje **SRS i pipeline obsługi odpowiedzi** bez usuwania funkcji Asystenta Nauki.
+### Najważniejsze funkcje
+- pytania ABC dla żurawi, koparek, koparkoładowarek i ładowarek,
+- wspólny model SRS i inteligentne powtórki,
+- trener odpowiedzi ustnej z nagrywaniem i lokalną analizą,
+- zadania obsługowe i technologiczne,
+- Akademia Operatora z grami proceduralnymi,
+- egzamin próbny 1:1,
+- jeden wspólny Mentor dla teorii, obsługi, technologii i gier,
+- rozbudowana sekcja „O co tu chodzi?” zamiast pustego „Dlaczego?”.
 
-Najważniejsze zmiany:
-- jeden kanoniczny SRS w `state.stats` (`srsLevel`, `due`, `lastAttempt`),
-- automatyczna migracja starego `state.srs` ze wszystkich modułów bez kasowania postępu,
-- dashboard, inteligentne powtórki i statystyki korzystają z tego samego źródła SRS,
-- `choose()` nie jest już wielokrotnie nadpisywane przez dodatki; efekty odpowiedzi korzystają ze wspólnego pipeline `addAnswerEffect()`,
-- pomiar czasu odpowiedzi i Asystent Nauki zostały podpięte do wspólnego pipeline,
-- zachowane: wyjaśnienia, słabości, PWA/offline, synchronizacja i pozostałe funkcje 5.2,
-- cache PWA: `udt-trainer-5.3.0-srs-refactor`.
+## Uruchomienie
+Rozpakuj pliki i otwórz `index.html`. Pełne funkcje PWA, aktualizacje i mikrofon najlepiej działają przez HTTPS, np. GitHub Pages.
 
-Jeżeli pytanie w bazie ma własne pola `explanation`, `memoryTip` lub `commonMistake`, aplikacja użyje ich. W przeciwnym razie tworzy lokalne wyjaśnienie na podstawie treści pytania i poprawnej odpowiedzi.
+## Historia wersji
+Historia 1.x–4.x została odtworzona z zachowanych informacji projektowych; dla części drobnych wydań nie zachował się pełny changelog.
 
+### 1.0
+- pierwsza działająca baza pytań,
+- podstawowy test jednokrotnego wyboru.
 
-## 5.4.0 — trening odpowiedzi ustnej
-- osobny tryb egzaminu obsługowego dla koparki jednonaczyniowej kl. I i koparkoładowarki kl. III,
-- 29 i 30 kart poleceń obsługowych,
-- schemat odpowiedzi: warunki → wskazanie → kontrola → reakcja → instrukcja,
-- samoocena czterostopniowa podpięta do wspólnego `state.stats` i SRS.
+### 1.x
+- poprawki treści i obsługi pytań,
+- pierwsze statystyki sesji.
 
+### 2.0–2.01
+- rozwój wersji paczkowej ZIP,
+- kolejne poprawki interfejsu i baz pytań.
 
-## 5.5.0 — trener głosowy i symulator praktyczny
-- nagrywanie odpowiedzi z mikrofonu i lokalne odtwarzanie,
-- transkrypcja po polsku przez Web Speech API (gdy obsługiwana),
-- lokalna analiza kompletności odpowiedzi według rubryki zadania,
-- punktacja 0–100%, lista wykrytych i brakujących elementów,
-- automatyczne pytanie uzupełniające w trybie pełnej symulacji,
-- sugerowana ocena zapisywana w istniejącym SRS.
+### 3.0
+- przejście do samodzielnej aplikacji HTML,
+- wygodniejsze uruchamianie w przeglądarce.
 
-Nagrania nie są wysyłane przez aplikację na własny serwer. Automatyczna transkrypcja zależy od implementacji przeglądarki/systemu.
+### 3.1
+- rozbudowana lista/baza pytań i nawigacja po materiale.
 
-## 6.0.0 — Akademia Operatora
-- 7 modułów: obsługa, technologia, gry proceduralne, mentor, statystyki, osiągnięcia, egzamin 1:1.
-- Aktualny zakres technologiczny WIT: 2 zadania dla koparek jednonaczyniowych kl. I i 8 dla koparkoładowarek kl. III.
-- Gra „Ułóż kolejność” działa przez klikanie kafelków; wybrane kroki automatycznie wskakują jako 1, 2, 3 itd.
-- Tłumaczenie poleceń technicznych na prosty język, schematy, błędy, kryteria i pytania komisji.
-- Wszystkie dane Akademii zapisują się lokalnie w przeglądarce.
+### 4.0 alpha
+- eksperymentalna większa przebudowa,
+- wersja niestabilna; część zmian nie weszła do wydania głównego.
+
+### 5.0–5.2
+- połączenie modułów maszyn w jedną aplikację,
+- PWA i tryb offline,
+- statystyki, notatki, ulubione, osiągnięcia i inteligentne powtórki,
+- Asystent Nauki i pierwsze wyjaśnienia odpowiedzi.
+
+### 5.3.0 — porządkowanie SRS
+- jeden kanoniczny SRS w `state.stats`,
+- migracja starego modelu bez kasowania postępów,
+- wspólny pipeline obsługi odpowiedzi zamiast kolejnych nakładek na `choose()`.
+
+### 5.4.0 — trening ustny
+- 29 kart obsługowych dla koparki jednonaczyniowej kl. I,
+- 30 kart dla koparkoładowarki kl. III,
+- schemat odpowiedzi i samoocena połączona z SRS.
+
+### 5.5.0 — Voice AI
+- nagrywanie i odtwarzanie odpowiedzi,
+- transkrypcja Web Speech API,
+- lokalna analiza kompletności, wynik 0–100% i pytania uzupełniające.
+
+### 5.6.0 — Oral Examiner
+- postęp zadanie X/Y,
+- statusy Umiem / Ćwiczę / Do powtórki,
+- losowanie, timer, statystyki i do trzech dopytań egzaminatora.
+
+### 6.0.0 — Akademia Operatora
+- siedem modułów Akademii,
+- zadania technologiczne w języku technicznym i prostym,
+- gry: klikana kolejność, brakujący krok, znajdź błąd i sprint,
+- statystyki, osiągnięcia i egzamin 1:1.
+
+### 6.1.0 — Mentor 2.0
+- jeden Mentor analizujący wszystkie moduły ABC oraz Akademię,
+- wspólny wskaźnik gotowości do egzaminu,
+- słabe działy teorii i automatyczny plan dnia,
+- przyciski uruchamiające zalecany trening,
+- sekcja „O co tu chodzi?” z: wersją po ludzku, zasadą, technicznym wyjaśnieniem, przykładem, eliminacją odpowiedzi, pułapką i hasłem do zapamiętania,
+- aktualizacja wersji oraz cache PWA.
+
+## Prywatność
+Postęp i nagrania pozostają lokalnie w przeglądarce. Opcjonalna synchronizacja korzysta z prywatnego GitHub Gista skonfigurowanego przez użytkownika.
+
+## Ważne
+Aplikacja wspiera naukę, ale nie zastępuje instrukcji konkretnej maszyny, zajęć praktycznych ani oceny instruktora.

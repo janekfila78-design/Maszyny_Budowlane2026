@@ -1,6 +1,6 @@
 
 /* UDT Trainer 5.6.0 — PWA, offline, aktualizacje, chmura, statystyki, wyjaśnienia */
-const UDT_VERSION='5.6.0';
+const UDT_VERSION='6.1.0';
 let deferredInstallPrompt=null;
 let newWorkerWaiting=null;
 
@@ -223,3 +223,126 @@ window.renderQuestionBrowser=function(){buildSearchCache();const inp=document.ge
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();showQuestionBrowser();setTimeout(()=>document.getElementById('questionSearch')?.focus(),0)}});
 
 window.addEventListener('DOMContentLoaded',()=>{ensureEnhancementUI();updateNetworkBadge();registerPWA();document.title=`UDT Trainer ${UDT_VERSION} Multi — trener operatora`;const h=document.getElementById('appTitle');if(h)h.textContent=`UDT Trainer ${UDT_VERSION} Multi`;const foot=document.querySelector('.footer');if(foot)foot.textContent=`UDT Trainer ${UDT_VERSION} Multi — PWA offline z automatycznymi aktualizacjami. Dane modułów są zapisywane osobno.`;});
+
+// === 6.1.0: wspólny Mentor + wyjaśnienia „O co tu chodzi?” ===
+const UDT_MENTOR_VERSION='6.1.0';
+
+function mentorCategory(text=''){
+  const t=clean(text).toLowerCase();
+  const rules=[
+    ['Procedury awaryjne',/pożar|awari|wypad|ewaku|ratunk|zagroż|alarm|wyciek/],
+    ['Pierwsza pomoc',/pierwsz.*pomoc|poszkod|krwaw|oparze|resuscyt|aed|oddech|tętn|padacz|kręgosłup/],
+    ['Hydraulika i smarowanie',/hydraul|olej|smar|ciśn|siłownik|przewod.*hyd/],
+    ['Silnik i chłodzenie',/silnik|chłodz|filtr.*powiet|paliw|temperatur/],
+    ['Stateczność i podłoże',/statecz|podpor|grunt|skar[pb]|wykop|nasyp|klin.*odłam|przewró/],
+    ['Osprzęt i zawiesia',/zawies|hak|lina|łańcuch|trawers|ładun|udźwig|osprzęt/],
+    ['Energia elektryczna',/elektr|napięci|linia.*napowiet|przewod.*kv|poraż/],
+    ['BHP i organizacja pracy',/bhp|zabron|dozwol|wolno|należy|powin|obowiąz|stref|sygnalist/],
+    ['Podwozie i jazda',/podwoz|gąsien|opon|koł|jazd|hamul|droga/],
+    ['Dokumentacja i dozór',/dokument|instrukcj|udt|wit|zaświadc|uprawn|dziennik|przegląd/]
+  ];
+  return (rules.find(([,r])=>r.test(t))||['Pozostałe'])[0];
+}
+function mentorStoredState(machineId){
+  const m=MACHINE_META[machineId];if(!m)return defaultState();
+  try{return migrateLegacySRS({...defaultState(),...JSON.parse(localStorage.getItem(m.key)||'{}')})}catch{return defaultState()}
+}
+function mentorTheorySummary(){
+  const modules=[];const categories={};let totalAttempts=0,totalCorrect=0,totalSeen=0,totalQuestions=0;
+  for(const [mid,m] of Object.entries(MACHINE_META)){
+    const st=mentorStoredState(mid);let attempts=0,correct=0,seen=0;
+    m.questions.forEach(q=>{const s=st.stats?.[q.id];totalQuestions++;if(!s?.attempts)return;seen++;attempts+=Number(s.attempts)||0;correct+=Number(s.correct)||0;const cat=mentorCategory(q.q);const c=categories[cat]||(categories[cat]={attempts:0,correct:0,wrong:0,questions:0,machines:new Set()});c.attempts+=Number(s.attempts)||0;c.correct+=Number(s.correct)||0;c.wrong+=Number(s.wrong)||0;c.questions++;c.machines.add(mid)});
+    totalAttempts+=attempts;totalCorrect+=correct;totalSeen+=seen;
+    modules.push({id:mid,name:m.name,attempts,correct,seen,total:m.questions.length,pct:attempts?Math.round(correct/attempts*100):0});
+  }
+  const cats=Object.entries(categories).map(([name,x])=>({name,...x,pct:x.attempts?Math.round(x.correct/x.attempts*100):0})).sort((a,b)=>a.pct-b.pct||b.wrong-a.wrong);
+  return {modules,cats,totalAttempts,totalCorrect,totalSeen,totalQuestions,pct:totalAttempts?Math.round(totalCorrect/totalAttempts*100):0};
+}
+function mentorAcademySummary(){
+  let oralAttempts=0,oralWrong=0,oralKnown=0;
+  for(const mid of ['excavators','backhoes']){
+    const st=mentorStoredState(mid);(ORAL_TASKS[mid]||[]).forEach(t=>{const s=st.stats?.[t.id];oralAttempts+=Number(s?.attempts)||0;oralWrong+=Number(s?.wrong)||0;if(s?.oralMastery==='known')oralKnown++})
+  }
+  const tech=Object.values(academyData?.tech||{}),techKnown=tech.filter(x=>x.status==='known').length,techRepeat=tech.filter(x=>x.status==='repeat').length;
+  const games=academyData?.games||{played:0,correct:0};
+  const exams=academyData?.history||[];
+  return {oralAttempts,oralWrong,oralKnown,techKnown,techRepeat,gamesPlayed:Number(games.played)||0,gamesPct:games.played?Math.round(games.correct/games.played*100):0,examCount:exams.length,examPct:exams.length?Math.round(exams.reduce((a,x)=>a+(Number(x.score)||0),0)/exams.length):0};
+}
+function mentorReadiness(theory,academy){
+  const theoryCoverage=theory.totalQuestions?theory.totalSeen/theory.totalQuestions*100:0;
+  const theoryQuality=theory.pct;
+  const practicalSignals=Math.min(100,academy.oralAttempts*2+academy.techKnown*8+academy.gamesPlayed*.7+academy.examCount*10);
+  return Math.max(0,Math.min(100,Math.round(theoryCoverage*.35+theoryQuality*.35+practicalSignals*.30)));
+}
+function mentorPlan(theory,academy){
+  const plan=[];const weakest=theory.cats.filter(x=>x.attempts>=2).slice(0,3);
+  weakest.forEach((x,i)=>plan.push({icon:'📖',title:`${i===0?'Priorytet: ':''}${x.name}`,detail:`Skuteczność ${x.pct}% • ${x.wrong} błędów. Zrób 8–12 pytań z tego obszaru.`,action:`mentorStartTheory('${x.name.replace(/'/g,"\\'")}')`,label:'Rozpocznij teorię'}));
+  if(academy.oralAttempts===0||academy.oralWrong>0)plan.push({icon:'🎙️',title:'Jedno zadanie obsługowe',detail:academy.oralWrong?`W odpowiedziach ustnych zapisano ${academy.oralWrong} błędów.`:'Zbuduj pierwsze dane z odpowiedzi ustnej.',action:'mentorStartOral()',label:'Trening ustny'});
+  if(academy.techKnown===0||academy.techRepeat>0)plan.push({icon:'🚜',title:'Jedno zadanie technologiczne',detail:academy.techRepeat?`${academy.techRepeat} zadań oznaczono do powtórki.`:'Przejdź jeden pełny schemat technologiczny.',action:'mentorStartTechnology()',label:'Technologia'});
+  if(academy.gamesPlayed<5||academy.gamesPct<75)plan.push({icon:'🎮',title:'5 rund proceduralnych',detail:`Skuteczność gier: ${academy.gamesPct}%.`,action:'mentorStartGames()',label:'Gry'});
+  return plan.slice(0,5);
+}
+function ensureUnifiedMentorUI(){
+  const dash=document.querySelector('.dashboard-actions');
+  if(dash&&!document.getElementById('unifiedMentorBtn'))dash.insertAdjacentHTML('afterbegin','<button id="unifiedMentorBtn" class="mentor-primary" onclick="showUnifiedMentor()">🧠 Mentor</button>');
+  if(!document.getElementById('mentorPanel')){
+    const el=document.createElement('div');el.id='mentorPanel';el.className='card hidden mentor-shell';el.innerHTML='<div class="toolbar"><div><h1>🧠 Mentor</h1><div class="small">Jeden plan dla teorii, obsługi, technologii i gier.</div></div><button class="secondary" onclick="backToMenu()">Zamknij</button></div><div id="mentorBody"></div>';
+    document.querySelector('.app').insertBefore(el,document.querySelector('.footer'));
+  }
+}
+function showUnifiedMentor(){
+  ensureUnifiedMentorUI();hideMainPanels();document.getElementById('mentorPanel').classList.remove('hidden');
+  const theory=mentorTheorySummary(),academy=mentorAcademySummary(),ready=mentorReadiness(theory,academy),plan=mentorPlan(theory,academy),weak=theory.cats.filter(x=>x.attempts>=2).slice(0,5);
+  document.getElementById('mentorBody').innerHTML=`
+  <div class="mentor-readiness"><div><span>GOTOWOŚĆ DO EGZAMINU</span><b>${ready}%</b><p>${ready>=85?'Bardzo dobra baza. Teraz utrwal słabe punkty i praktykę.':ready>=60?'Jesteś w połowie drogi — największy wzrost da trening ukierunkowany.':'Najpierw zbuduj regularność i przerób większą część materiału.'}</p></div><div class="readiness-ring" style="--p:${ready}">${ready}%</div></div>
+  <div class="mentor-overview"><div><b>${theory.pct}%</b><span>teoria ABC</span></div><div><b>${theory.totalSeen}/${theory.totalQuestions}</b><span>pytań poznanych</span></div><div><b>${academy.oralKnown}</b><span>obsługa: umiem</span></div><div><b>${academy.techKnown}</b><span>technologia: umiem</span></div><div><b>${academy.gamesPct}%</b><span>gry</span></div><div><b>${academy.examPct}%</b><span>egzaminy 1:1</span></div></div>
+  <div class="mentor-card"><h2>Dzisiejszy plan</h2>${plan.length?plan.map((x,i)=>`<div class="mentor-action"><span>${x.icon}</span><div><b>${i+1}. ${escapeHtml(x.title)}</b><small>${escapeHtml(x.detail)}</small></div><button onclick="${x.action}">${x.label}</button></div>`).join(''):'<p>Brak danych. Rozwiąż pierwszą sesję, aby Mentor przestał wróżyć z fusów.</p>'}</div>
+  <div class="mentor-card"><h2>Najsłabsze działy teorii</h2>${weak.length?weak.map(x=>`<div class="mentor-skill"><div><b>${escapeHtml(x.name)}</b><span>${x.questions} pytań • ${x.wrong} błędów</span></div><strong>${x.pct}%</strong><div class="mini-progress"><div style="width:${x.pct}%"></div></div></div>`).join(''):'<p class="small">Za mało odpowiedzi do analizy działów.</p>'}</div>
+  <div class="mentor-card"><h2>Moduły ABC</h2>${theory.modules.map(x=>`<div class="history-item"><span>${escapeHtml(x.name)} • ${x.seen}/${x.total}</span><b>${x.attempts?x.pct+'%':'brak danych'}</b></div>`).join('')}</div>`;
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function mentorStartTheory(category){
+  const target=mentorTheorySummary().modules.filter(x=>x.attempts).sort((a,b)=>a.pct-b.pct)[0]?.id||activeMachine;setMachine(target);backToMenu();document.getElementById('source').value='weaknesses';document.getElementById('count').value=Math.min(10,QUESTIONS.length);startNew();
+}
+function mentorStartOral(){if(!academySupported())setMachine('excavators');backToMenu();showOralSetup()}
+function mentorStartTechnology(){if(!academySupported())setMachine('excavators');showAcademy();showTechnologyModule()}
+function mentorStartGames(){if(!academySupported())setMachine('excavators');showAcademy();showAcademyGames()}
+
+// Mentor Akademii korzysta od teraz z tego samego silnika.
+window.showAcademyMentor=function(){showUnifiedMentor()};
+
+const _mentorBackToMenu=window.backToMenu;
+window.backToMenu=function(){document.getElementById('mentorPanel')?.classList.add('hidden');_mentorBackToMenu()};
+
+function explanationRule(q,correct){
+  const t=clean(q.q).toLowerCase();
+  if(/pożar|zapali|pali się/.test(t))return {human:'Najpierw zatrzymaj rozwój zagrożenia: unieruchom maszynę, opuść osprzęt, wyłącz napęd i dopiero wtedy gaś albo ewakuuj się — zależnie od sytuacji.',principle:'W awarii obowiązuje kolejność: bezpieczeństwo ludzi → bezpieczny stan maszyny → ograniczenie skutków.',practice:'Maszyna pozostawiona z pracującym silnikiem lub podniesionym osprzętem może powiększyć pożar albo stworzyć drugie zagrożenie.'};
+  if(/pierwsz.*pomoc|poszkod|resuscyt|aed|krwaw|oparze/.test(t))return {human:'Wybierz działanie, które najpierw chroni życie i nie pogarsza stanu poszkodowanego.',principle:'Najpierw bezpieczeństwo miejsca, potem ocena funkcji życiowych i czynność o najwyższym priorytecie.',practice:'Nie wykonuj efektownych, ale ryzykownych czynności, zanim nie rozpoznasz bezpośredniego zagrożenia życia.'};
+  if(/hydraul|olej|smar|filtr|chłodz|paliw|ciśn/.test(t))return {human:'Pytanie sprawdza, jak utrzymać układ w prawidłowych warunkach i nie doprowadzić do jego uszkodzenia.',principle:'Kontrola techniczna zawsze łączy właściwe warunki pomiaru, prawidłowy parametr i reakcję na nieprawidłowość.',practice:'Ten sam odczyt wykonany na pochyłości, gorącym układzie albo przy złym położeniu osprzętu może być fałszywy.'};
+  if(/statecz|podpor|grunt|wykop|skar[pb]|klin.*odłam/.test(t))return {human:'Chodzi o takie ustawienie maszyny, żeby grunt wytrzymał obciążenie, a maszyna nie straciła stateczności.',principle:'Stateczność zależy od podłoża, położenia środka ciężkości, wysięgu, obciążenia i prawidłowego podparcia.',practice:'Nawet poprawna masa ładunku nie gwarantuje bezpieczeństwa, gdy maszyna stoi za blisko krawędzi albo na słabym gruncie.'};
+  if(/linia.*elektro|napięci|poraż|przewod.*kv/.test(t))return {human:'Najpierw rozpoznaj napięcie i strefę zagrożenia, a potem dobierz wymaganą odległość.',principle:'Przy energii elektrycznej nie działa „na oko” — odległości i procedury wynikają z napięcia oraz przepisów.',practice:'Do porażenia może dojść także bez bezpośredniego dotknięcia przewodu.'};
+  if(/zawies|hak|lina|łańcuch|udźwig|ładun/.test(t))return {human:'Sprawdź, czy element ma odpowiedni udźwig, jest prawidłowo dobrany i nie ma uszkodzeń wyłączających go z użycia.',principle:'Bezpieczne podnoszenie wymaga zgodności masy, konfiguracji, udźwigu i stanu wszystkich elementów drogi obciążenia.',practice:'Najsłabszy element zestawu ogranicza bezpieczeństwo całej operacji.'};
+  if(/zabron|dozwol|wolno|należy|powin|obowiąz/.test(t))return {human:'Znajdź słowo rozstrzygające: „należy”, „można”, „nie wolno” albo „tylko gdy”.',principle:'W pytaniach normatywnych drobna zmiana warunku zmienia odpowiedź z poprawnej na błędną.',practice:'Nie wybieraj odpowiedzi dlatego, że brzmi rozsądnie — musi dokładnie spełniać warunek z pytania.'};
+  return {human:`Sednem jest zasada zawarta w odpowiedzi: „${correct}”. Powiedz ją własnymi słowami, zamiast zapamiętywać literę.`,principle:'Poprawna odpowiedź musi jednocześnie pasować do wszystkich warunków pytania; odpowiedź częściowo prawdziwa nadal jest błędna.',practice:'Najpierw nazwij temat pytania jednym zdaniem, dopiero potem porównuj warianty.'};
+}
+function richerExplanationData(q,selectedIndex=null){
+  const base=learningAssistantData(q,selectedIndex),r=explanationRule(q,base.correct);
+  const distractors=(q.a||[]).map((a,i)=>({i,text:answerText(q,i),correct:i===base.correctIndex}));
+  return {...base,human:r.human,principle:r.principle,practice:r.practice,distractors};
+}
+window.explanationHTML=function(q,selectedIndex=null,expanded=false){
+  const d=richerExplanationData(q,selectedIndex),st=learningStatusFor(q);
+  const alternatives=d.distractors.map(x=>`<li class="${x.correct?'goodText':''}"><b>${letter(x.i)}.</b> ${escapeHtml(x.text)} — ${x.correct?'spełnia warunek pytania.':'nie spełnia całego warunku albo pomija kluczową zasadę.'}</li>`).join('');
+  return `<div class="assistant-head"><span class="assistant-icon">🧠</span><div><b>O co tu chodzi?</b><span class="small">Wyjaśnienie i Mentor działają offline</span></div></div>
+    <div class="assistant-correct"><span>📖 Oficjalnie</span><b>${letter(d.correctIndex)}. ${escapeHtml(d.correct)}</b></div>
+    <div class="assistant-section assistant-human"><b>🙂 Po ludzku</b><p>${escapeHtml(d.human)}</p></div>
+    <div class="assistant-section"><b>🧠 Zasada</b><p>${escapeHtml(d.principle)}</p></div>
+    <div class="assistant-section assistant-technical"><b>⚙️ Technicznie</b><p>${escapeHtml(d.technical)}</p></div>
+    ${expanded?`<div class="assistant-section assistant-more"><b>🚜 Przykład z praktyki</b><p>${escapeHtml(d.practice)}</p></div>
+    <div class="assistant-section"><b>❌ Dlaczego pozostałe odpadają?</b><ul class="answer-reasons">${alternatives}</ul></div>
+    <div class="assistant-section memory-tip"><b>📋 Co zapamiętać</b><p>${escapeHtml(d.tip)}</p></div>
+    <div class="assistant-section common-mistake"><b>⚠️ Pułapka egzaminatora</b><p>${escapeHtml(d.mistake)}</p></div>`:''}
+    ${st}<div class="assistant-actions"><button class="secondary mini-btn" onclick="showExplanation(${q.id},${selectedIndex===null?'null':Number(selectedIndex)},${expanded?'false':'true'})">${expanded?'Zwiń':'📖 Pełne wyjaśnienie'}</button><button class="secondary mini-btn" onclick="showUnifiedMentor()">🧠 Mentor</button></div>`;
+};
+
+setTimeout(ensureUnifiedMentorUI,0);
