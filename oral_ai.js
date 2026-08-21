@@ -1,6 +1,6 @@
-/* UDT Trainer 5.5 — lokalny trener głosowy i symulator egzaminatora */
+/* UDT Trainer 5.6 — lokalny trener głosowy i symulator egzaminatora */
 let oralRecorder=null,oralAudioChunks=[],oralAudioUrl='',oralRecognition=null,oralListening=false;
-let oralTranscriptFinal='',oralTranscriptInterim='',oralLastAnalysis=null,oralSimulationPhase=0,oralFollowupBase='';
+let oralTranscriptFinal='',oralTranscriptInterim='',oralLastAnalysis=null,oralSimulationPhase=0,oralFollowupBase='',oralFollowupCount=0,oralAskedCriteria=[];
 
 const ORAL_STOPWORDS=new Set('oraz albo żeby przed przez przy jest są się do na w z i o po od dla jako ten ta to tej tego tym które który zgodnie należy trzeba wykonuję sprawdzam kontroluję wskazuję omówię omówić'.split(' '));
 const ORAL_SYNONYMS={
@@ -66,8 +66,10 @@ function analyzeOralAnswer(task,transcript){
   return {score,details,missing,covered,wordCount:words.length,safetyHits,grade:score>=88?3:score>=68?2:score>=42?1:0};
 }
 function oralFollowupQuestion(analysis){
-  const m=analysis?.missing?.[0];
-  if(!m)return 'Czy jest jeszcze coś, co powinieneś sprawdzić przed dopuszczeniem maszyny do pracy?';
+  const candidates=(analysis?.missing||[]).filter(m=>!oralAskedCriteria.includes(m.id));
+  const m=candidates[0];
+  if(!m)return 'Czy jest jeszcze coś, co powinieneś sprawdzić lub zrobić przed dopuszczeniem maszyny do pracy?';
+  oralAskedCriteria.push(m.id);
   const txt=m.text.replace(/[.!?]+$/,'');
   if(/uster|nieprawid|wyciek|uszkod/i.test(txt))return 'Co zrobisz, jeżeli podczas tej kontroli stwierdzisz nieprawidłowość?';
   if(/instruk|rodzaj|poziom|wartość|specyfik/i.test(txt))return 'Skąd weźmiesz właściwy parametr lub specyfikację dla tej konkretnej maszyny?';
@@ -128,7 +130,7 @@ function stopOralRecording(){
 }
 function toggleOralRecording(){oralListening?stopOralRecording():startOralRecording()}
 function clearOralVoice(){
-  if(oralListening)stopOralRecording();oralTranscriptFinal='';oralTranscriptInterim='';oralFollowupBase='';oralSimulationPhase=0;oralLastAnalysis=null;
+  if(oralListening)stopOralRecording();oralTranscriptFinal='';oralTranscriptInterim='';oralFollowupBase='';oralSimulationPhase=0;oralFollowupCount=0;oralAskedCriteria=[];oralLastAnalysis=null;
   const ta=document.getElementById('oralTranscript');if(ta)ta.value='';
   const audio=document.getElementById('oralPlayback');if(audio){audio.pause();audio.removeAttribute('src');audio.classList.add('hidden')}
   document.getElementById('oralAnalysis')?.classList.add('hidden');document.getElementById('oralFollowup')?.classList.add('hidden');oralSetVoiceStatus('Gotowy. Odpowiedz własnymi słowami.');
@@ -146,11 +148,16 @@ function analyzeCurrentOral(){
   const transcript=document.getElementById('oralTranscript').value.trim();
   if(transcript.length<3){oralSetVoiceStatus('Najpierw nagraj albo wpisz odpowiedź. Czytanie w myślach jest jeszcze w backlogu.','bad');return}
   const task=oralPool[oralIndex];oralLastAnalysis=analyzeOralAnswer(task,transcript);renderOralAnalysis(oralLastAnalysis);
-  if(document.getElementById('oralMode')?.value==='simulation'&&oralSimulationPhase===0){
-    oralSimulationPhase=1;oralFollowupBase=transcript;
-    const q=oralFollowupQuestion(oralLastAnalysis);document.getElementById('oralFollowupQuestion').textContent=q;document.getElementById('oralFollowup').classList.remove('hidden');
-    oralSetVoiceStatus('Egzaminator ma pytanie uzupełniające. Odpowiedz i przeanalizuj ponownie.','live');
-  }else if(oralSimulationPhase===1){oralSimulationPhase=2;document.getElementById('oralFollowup').classList.add('hidden');oralSetVoiceStatus('Symulacja zakończona. Wynik obejmuje odpowiedź główną i doprecyzowanie.','ok')}
+  const simulation=document.getElementById('oralMode')?.value==='simulation';
+  const canAsk=simulation&&oralFollowupCount<3&&oralLastAnalysis.missing.length>0;
+  if(canAsk){
+    oralSimulationPhase=1;oralFollowupCount++;oralFollowupBase=transcript;
+    const q=oralFollowupQuestion(oralLastAnalysis);document.getElementById('oralFollowupQuestion').textContent=q;document.getElementById('oralFollowupLabel').textContent=`PYTANIE UZUPEŁNIAJĄCE ${oralFollowupCount}/3`;
+    document.getElementById('oralFollowup').classList.remove('hidden');oralSetVoiceStatus(`Egzaminator zadaje pytanie ${oralFollowupCount}. Odpowiedz i uruchom analizę ponownie.`,'live');
+  }else{
+    oralSimulationPhase=2;document.getElementById('oralFollowup').classList.add('hidden');
+    if(simulation)oralSetVoiceStatus(`Symulacja zakończona po ${oralFollowupCount} pytaniach uzupełniających.`,'ok');
+  }
 }
 function startFollowupRecording(){
   if(oralListening)return;oralTranscriptFinal='';oralTranscriptInterim='';
@@ -159,7 +166,7 @@ function startFollowupRecording(){
 }
 function acceptAiGrade(){
   if(!oralLastAnalysis){analyzeCurrentOral();if(!oralLastAnalysis)return}
-  if(document.getElementById('oralMode')?.value==='simulation'&&oralSimulationPhase===1){oralSetVoiceStatus('Najpierw odpowiedz na pytanie uzupełniające albo wybierz ocenę ręczną.','bad');return}
+  if(document.getElementById('oralMode')?.value==='simulation'&&oralSimulationPhase===1){oralSetVoiceStatus('Najpierw odpowiedz na bieżące pytanie uzupełniające.','bad');return}
   rateOral(oralLastAnalysis.grade);
 }
 function oralVoiceResetForCard(){clearOralVoice();

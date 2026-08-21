@@ -1,3 +1,14 @@
+# UDT Trainer 5.6.0
+
+## Nowości w trybie ustnym
+- pasek postępu „Zadanie X/Y”
+- statusy: Umiem / Jeszcze ćwiczę / Do powtórki
+- kolejność po kolei lub losowa
+- timer 60, 90, 120 sekund albo bez limitu
+- statystyki odpowiedzi ustnych i lista najtrudniejszych zadań
+- tryb Egzaminator z maksymalnie trzema pytaniami uzupełniającymi
+- nagrywanie, transkrypcja, lokalna analiza i zapis do wspólnego SRS
+
 # UDT Trainer 5.3.0 Multi
 
 Wersja 5.3.0 porządkuje **SRS i pipeline obsługi odpowiedzi** bez usuwania funkcji Asystenta Nauki.

@@ -7,12 +7,12 @@
 <meta name="description" content="Trener egzaminacyjny operatora — żurawie, koparki, koparkoładowarki i ładowarki">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>UDT Trainer 5.5.0 — trener operatora</title>
+<title>UDT Trainer 5.6.0 — trener operatora</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="app">
-<div class="card toolbar"><div><h1 id="appTitle">UDT Trainer 5.5.0</h1><div id="appSubtitle" class="small"></div></div><div class="top-actions"><button class="secondary" onclick="showMachinePicker()" title="Zmień moduł">🧩 <span class="module-label" id="moduleButtonLabel">Moduły</span></button><button id="themeBtn" class="secondary iconbtn" onclick="toggleTheme()" title="Zmień motyw">☀️</button></div></div>
+<div class="card toolbar"><div><h1 id="appTitle">UDT Trainer 5.6.0</h1><div id="appSubtitle" class="small"></div></div><div class="top-actions"><button class="secondary" onclick="showMachinePicker()" title="Zmień moduł">🧩 <span class="module-label" id="moduleButtonLabel">Moduły</span></button><button id="themeBtn" class="secondary iconbtn" onclick="toggleTheme()" title="Zmień motyw">☀️</button></div></div>
 <div id="runtimeError" class="error-banner" role="alert"></div>
 <div id="machinePicker" class="card machine-picker hidden">
   <div class="toolbar"><div><h2>Wybierz moduł</h2><div class="small">Jedna aplikacja, osobne bazy i osobne postępy nauki.</div></div><button class="secondary" onclick="hideMachinePicker()">Zamknij</button></div>
@@ -54,23 +54,28 @@
   <div id="oralSetup">
     <div class="oral-intro"><b>Jak ćwiczyć?</b><span>Przeczytaj polecenie, odpowiedz na głos według schematu: warunki → wskazanie → kontrola → reakcja → instrukcja. Dopiero potem odsłoń wzorzec.</span></div>
     <div class="grid">
-      <div class="field"><label>Pula poleceń</label><select id="oralSource"><option value="all">Wszystkie polecenia</option><option value="due">Do powtórki SRS</option><option value="weak">Słabe odpowiedzi</option><option value="unseen">Jeszcze nieprzerobione</option></select></div>
-      <div class="field"><label>Liczba poleceń</label><input id="oralCount" type="number" min="1" max="30" value="10"></div><div class="field"><label>Tryb odpowiedzi</label><select id="oralMode"><option value="coach">Trener AI — analiza jednej odpowiedzi</option><option value="simulation">🎭 Pełna symulacja — z pytaniem uzupełniającym</option></select></div>
+      <div class="field"><label>Pula poleceń</label><select id="oralSource"><option value="all">Wszystkie polecenia</option><option value="due">Do powtórki SRS</option><option value="weak">Słabe odpowiedzi</option><option value="repeat">🔴 Tylko do powtórki</option><option value="unseen">Jeszcze nieprzerobione</option></select></div>
+      <div class="field"><label>Liczba poleceń</label><input id="oralCount" type="number" min="1" max="30" value="10"></div>
+      <div class="field"><label>Kolejność</label><select id="oralOrder"><option value="sequential">Po kolei</option><option value="random">🎲 Losowo</option></select></div>
+      <div class="field"><label>Minutnik odpowiedzi</label><select id="oralTimerSetting"><option value="0">Bez limitu</option><option value="60">60 sekund</option><option value="90" selected>90 sekund</option><option value="120">120 sekund</option></select></div>
+      <div class="field"><label>Tryb odpowiedzi</label><select id="oralMode"><option value="coach">Trener AI — analiza jednej odpowiedzi</option><option value="simulation">🎭 Egzaminator — 2–3 pytania uzupełniające</option></select></div>
     </div>
-    <div class="row" style="margin-top:12px"><button onclick="startOralTraining()">Rozpocznij trening ustny</button></div><p id="oralError" class="small" style="color:var(--bad)"></p>
+    <div class="row" style="margin-top:12px"><button onclick="startOralTraining()">Rozpocznij trening ustny</button><button class="secondary" onclick="showOralStatistics()">📊 Statystyki ustne</button></div><p id="oralError" class="small" style="color:var(--bad)"></p>
+    <div id="oralStatistics" class="oral-statistics hidden"></div>
   </div>
   <div id="oralSession" class="hidden">
     <div id="oralCore">
-    <div class="oral-session-head"><span id="oralPos" class="pill">1/10</span><span class="small">Najpierw odpowiedz na głos. Nie podglądaj jak łobuz.</span></div>
+    <div class="oral-session-head"><div class="row"><span id="oralPos" class="pill">Zadanie 1/10</span><span id="oralTaskStatus" class="oral-status-badge">Jeszcze ćwiczę</span></div><div class="oral-timer-box"><span id="oralTimer">01:30</span><button id="oralTimerBtn" class="secondary" onclick="toggleOralTimer()">▶ Start</button></div></div>
     <div class="progress"><div id="oralProgress" class="bar"></div></div>
-    <div class="oral-command"><span>POLECENIE EGZAMINATORA</span><h2 id="oralCardTitle"></h2><p id="oralPrompt"></p><button class="secondary oral-speak" onclick="speakCurrentOralPrompt()">🔊 Odczytaj polecenie</button></div>
+    <div class="oral-command"><span>POLECENIE EGZAMINATORA</span><h2 id="oralCardTitle"></h2><p id="oralPrompt"></p><div class="row"><button class="secondary oral-speak" onclick="speakCurrentOralPrompt()">🔊 Odczytaj polecenie</button><button class="secondary" onclick="randomOralTask()">🎲 Losuj inne</button></div></div>
+    <div class="oral-status-actions"><span>Oznacz zadanie:</span><button onclick="setOralMastery('known')">🟢 Umiem</button><button class="secondary" onclick="setOralMastery('practice')">🟡 Jeszcze ćwiczę</button><button class="danger" onclick="setOralMastery('repeat')">🔴 Do powtórki</button></div>
     <div class="oral-voice-panel">
       <div class="toolbar"><div><b>🎤 Twoja odpowiedź</b><div id="oralSpeechSupport" class="small"></div></div><button id="oralRecordBtn" onclick="toggleOralRecording()">🎤 Nagraj odpowiedź</button></div>
       <div id="oralVoiceStatus" class="oral-voice-status">Gotowy. Odpowiedz własnymi słowami.</div>
       <audio id="oralPlayback" class="hidden" controls></audio>
       <textarea id="oralTranscript" class="oral-transcript" placeholder="Transkrypcja pojawi się tutaj. Możesz ją też wpisać lub poprawić ręcznie."></textarea>
       <div class="row"><button onclick="analyzeCurrentOral()">🤖 Przeanalizuj odpowiedź</button><button class="secondary" onclick="clearOralVoice()">Wyczyść</button><button id="oralRevealBtn" class="secondary" onclick="revealOralAnswer()">Pokaż wzorzec</button></div>
-      <div id="oralFollowup" class="oral-followup hidden"><span>PYTANIE UZUPEŁNIAJĄCE EGZAMINATORA</span><p id="oralFollowupQuestion"></p><div class="row"><button class="secondary" onclick="speakOralText(document.getElementById('oralFollowupQuestion').textContent)">🔊 Odczytaj pytanie</button><button onclick="startFollowupRecording()">🎤 Odpowiedz na dopytanie</button></div></div>
+      <div id="oralFollowup" class="oral-followup hidden"><span id="oralFollowupLabel">PYTANIE UZUPEŁNIAJĄCE EGZAMINATORA</span><p id="oralFollowupQuestion"></p><div class="row"><button class="secondary" onclick="speakOralText(document.getElementById('oralFollowupQuestion').textContent)">🔊 Odczytaj pytanie</button><button onclick="startFollowupRecording()">🎤 Odpowiedz na dopytanie</button></div></div>
       <div id="oralAnalysis" class="oral-analysis hidden"><div class="oral-score"><b id="oralAiScore">0%</b><span id="oralAiVerdict"></span></div><div class="oral-analysis-grid"><div><b>✅ Wykryte elementy</b><ul id="oralCoveredList"></ul></div><div><b>📋 Brakujące elementy</b><ul id="oralMissingList"></ul></div></div><div class="oral-ai-grade">Sugerowana ocena SRS: <b id="oralAutoGrade"></b><button onclick="acceptAiGrade()">Zapisz ocenę i przejdź dalej</button></div></div>
     </div>
     <div id="oralAnswer" class="hidden">
@@ -87,9 +92,9 @@
 <div id="stats" class="card hidden"><div class="toolbar"><h1>Statystyki</h1><button class="secondary" onclick="hideStats()">Zamknij</button></div><div id="statsBody"></div><div class="row" style="margin-top:12px"><button class="danger" onclick="resetProgress()">Wyzeruj wszystkie postępy</button></div></div>
 <div id="browser" class="card hidden"><div class="toolbar"><h1>Baza 949 pytań</h1><button class="secondary" onclick="backToMenu()">Zamknij</button></div><div class="grid"><div class="field"><label>Szukaj po numerze lub treści</label><input id="questionSearch" placeholder="np. 415 albo ogranicznik" oninput="renderQuestionBrowser()"></div><div class="field"><label>Status</label><select id="questionStatus" onchange="renderQuestionBrowser()"><option value="all">Wszystkie</option><option value="unseen">Nieprzerobione</option><option value="mastered">Opanowane</option><option value="hard">Trudne</option><option value="notes">Z notatkami</option><option value="favorites">Ulubione</option></select></div></div><p class="small">🟢 opanowane • 🟡 w trakcie • 🔴 trudne • szary — nieprzerobione</p><div id="questionList" class="q-list"></div></div>
 <div id="questionDetail" class="card hidden"></div>
-<div id="diagnostics" class="card hidden"><div class="toolbar"><div><h1>Diagnostyka</h1><div class="small">Automatyczny test najważniejszych elementów aplikacji.</div></div><button class="secondary" onclick="backToMenu()">Zamknij</button></div><div class="version-pill">Wersja 5.5.0</div><div id="diagnosticsBody" class="diag-list"></div><div class="row diag-actions"><button onclick="runDiagnostics()">Uruchom test ponownie</button><button class="secondary" onclick="copyDiagnostics()">Kopiuj wynik</button></div></div>
+<div id="diagnostics" class="card hidden"><div class="toolbar"><div><h1>Diagnostyka</h1><div class="small">Automatyczny test najważniejszych elementów aplikacji.</div></div><button class="secondary" onclick="backToMenu()">Zamknij</button></div><div class="version-pill">Wersja 5.6.0</div><div id="diagnosticsBody" class="diag-list"></div><div class="row diag-actions"><button onclick="runDiagnostics()">Uruchom test ponownie</button><button class="secondary" onclick="copyDiagnostics()">Kopiuj wynik</button></div></div>
 <div id="achievements" class="card hidden"><div class="toolbar"><h1>Osiągnięcia</h1><button class="secondary" onclick="backToMenu()">Zamknij</button></div><div id="achievementSummary" class="small" style="margin-bottom:12px"></div><div id="badgeGrid" class="badge-grid"></div></div>
-<div class="footer">UDT Trainer 5.5.0 — trener operatora offline.</div>
+<div class="footer">UDT Trainer 5.6.0 — trener operatora offline.</div>
 </div>
 <div id="imageModal" class="modal hidden" onclick="closeImage()"><button class="secondary" onclick="closeImage()">✕</button><img id="modalImg" alt="Powiększony rysunek"></div>
 <script defer src="crane_questions_1.js"></script>

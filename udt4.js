@@ -1,5 +1,5 @@
-/* UDT Trainer 5.3.0 — coach dashboard, SRS, readiness, activity calendar, settings */
-const UDT4_VERSION='5.3.0';
+/* UDT Trainer 5.6.0 — coach dashboard, SRS, readiness, activity calendar, settings */
+const UDT4_VERSION='5.6.0';
 
 function ensureProState(){
   state.dailyGoal=Number(state.dailyGoal)||25;
@@ -43,8 +43,8 @@ function averageAnswerTime(){ensureProState();const vals=Object.values(state.ans
 
 function ensureUdt4UI(){
   ensureProState();
-  const title=document.getElementById('appTitle');if(title)title.textContent='UDT Trainer 5.3.0';
-  document.title='UDT Trainer 5.3.0 — trener operatora';
+  const title=document.getElementById('appTitle');if(title)title.textContent='UDT Trainer 5.6.0';
+  document.title='UDT Trainer 5.6.0 — trener operatora';
   const dash=document.getElementById('dashboard');
   if(dash&&!document.getElementById('coachHero')){
     dash.insertAdjacentHTML('afterbegin',`<section id="coachHero" class="coach-hero"><div><span class="eyebrow">TWÓJ TRENER</span><h2 id="coachGreeting">Gotowy do nauki?</h2><p id="coachPlan" class="small"></p><div class="row coach-buttons"><button onclick="startCoachSession()">▶ Rozpocznij plan dnia</button><button class="secondary" onclick="startQuickReview()">🔁 Szybka powtórka</button></div></div><div class="readiness"><span class="small">Szansa zdania*</span><strong id="readinessValue">0%</strong><span id="readinessLabel" class="small">Brak danych</span></div></section>
@@ -66,8 +66,8 @@ function ensureUdt4UI(){
   if(!document.getElementById('bottomNav')){
     document.body.insertAdjacentHTML('beforeend',`<nav id="bottomNav" class="bottom-nav"><button onclick="backToMenu()"><span>🏠</span>Start</button><button onclick="showQuestionBrowser()"><span>🔎</span>Baza</button><button class="nav-main" onclick="startCoachSession()"><span>▶</span>Nauka</button><button onclick="showStats()"><span>📊</span>Postęp</button><button onclick="showSettings()"><span>⚙️</span>Więcej</button></nav>`);
   }
-  const footer=document.querySelector('.footer');if(footer)footer.textContent='UDT Trainer 5.3.0 — trener operatora • PWA offline • inteligentne powtórki • dane lokalne';
-  const diag=document.querySelector('#diagnostics .version-pill');if(diag)diag.textContent='Wersja 5.3.0';
+  const footer=document.querySelector('.footer');if(footer)footer.textContent='UDT Trainer 5.6.0 — trener operatora • PWA offline • inteligentne powtórki • dane lokalne';
+  const diag=document.querySelector('#diagnostics .version-pill');if(diag)diag.textContent='Wersja 5.6.0';
 }
 function weaknessRowsHTML(){
   const list=weaknessQuestions().slice(0,5);
