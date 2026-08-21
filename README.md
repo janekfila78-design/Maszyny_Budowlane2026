@@ -41,3 +41,10 @@ Jeżeli pytanie w bazie ma własne pola `explanation`, `memoryTip` lub `commonMi
 - sugerowana ocena zapisywana w istniejącym SRS.
 
 Nagrania nie są wysyłane przez aplikację na własny serwer. Automatyczna transkrypcja zależy od implementacji przeglądarki/systemu.
+
+## 6.0.0 — Akademia Operatora
+- 7 modułów: obsługa, technologia, gry proceduralne, mentor, statystyki, osiągnięcia, egzamin 1:1.
+- Aktualny zakres technologiczny WIT: 2 zadania dla koparek jednonaczyniowych kl. I i 8 dla koparkoładowarek kl. III.
+- Gra „Ułóż kolejność” działa przez klikanie kafelków; wybrane kroki automatycznie wskakują jako 1, 2, 3 itd.
+- Tłumaczenie poleceń technicznych na prosty język, schematy, błędy, kryteria i pytania komisji.
+- Wszystkie dane Akademii zapisują się lokalnie w przeglądarce.
