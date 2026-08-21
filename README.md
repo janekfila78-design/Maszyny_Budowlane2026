@@ -2,7 +2,7 @@
 
 Mobilna aplikacja PWA do nauki pytań teoretycznych oraz przygotowania do części praktycznej egzaminów operatorów. Działa offline i zapisuje postępy lokalnie.
 
-## Wersja bieżąca: 6.1.1 — Aktywny Mentor
+## Wersja bieżąca: 6.2.0 — Aktywny Mentor
 
 ### Najważniejsze funkcje
 - pytania ABC dla żurawi, koparek, koparkoładowarek i ładowarek,
@@ -83,7 +83,7 @@ Historia 1.x–4.x została odtworzona z zachowanych informacji projektowych; dl
 - sekcja „O co tu chodzi?” z: wersją po ludzku, zasadą, technicznym wyjaśnieniem, przykładem, eliminacją odpowiedzi, pułapką i hasłem do zapamiętania,
 - aktualizacja wersji oraz cache PWA.
 
-### 6.1.1 — Aktywny Mentor
+### 6.2.0 — Aktywny Mentor
 - duży, kolorystyczny wskaźnik gotowości do egzaminu,
 - historia gotowości i porównanie z poprzednim dniem,
 - konkretny plan dnia z liczbą pytań i zadań,

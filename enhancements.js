@@ -447,3 +447,70 @@ window.explanationHTML=function(q,selectedIndex=null,expanded=false){
     ${st}<div class="assistant-actions"><button class="secondary mini-btn" onclick="showExplanation(${q.id},${selectedIndex===null?'null':Number(selectedIndex)},${expanded?'false':'true'})">${expanded?'Zwiń':'📖 Dlaczego inne są złe?'}</button><button class="secondary mini-btn" onclick="showUnifiedMentor()">🧠 Mentor</button></div>`;
 };
 setTimeout(()=>{ensureUnifiedMentorUI();updateMentorDashboard()},0);
+
+
+// === 6.2.0: ekran Start jako centrum dowodzenia ===
+const HOME_PLAN_KEY='udt_home_plan_v620';
+function homeDayKey(){return new Date().toISOString().slice(0,10)}
+function homePlanState(){
+  let x={};try{x=JSON.parse(localStorage.getItem(HOME_PLAN_KEY)||'{}')}catch{}
+  const day=homeDayKey();if(x.day!==day)x={day,theory:false,oral:false,tech:false,games:0};return x;
+}
+function saveHomePlan(x){localStorage.setItem(HOME_PLAN_KEY,JSON.stringify(x));renderHomeDashboard()}
+function markHomePlan(kind,amount=1){const x=homePlanState();if(kind==='games')x.games=Math.max(0,(x.games||0)+amount);else x[kind]=true;saveHomePlan(x)}
+function homePlanItems(theory,academy){
+  const weak=theory.cats.filter(x=>x.attempts>=2).sort((a,b)=>a.pct-b.pct||b.wrong-a.wrong)[0];
+  return [
+    {id:'theory',icon:'📖',title:weak?`8 pytań: ${weak.name}`:'8 pytań ABC',done:homePlanState().theory,run:weak?`mentorStartTheory('${weak.name.replace(/'/g,"\\'")}')`:'showSessionSetup()'},
+    {id:'oral',icon:'🎙️',title:'1 zadanie obsługowe',done:homePlanState().oral,run:'mentorStartOral()'},
+    {id:'tech',icon:'🚜',title:'1 zadanie technologiczne',done:homePlanState().tech,run:'mentorStartTechnology()'},
+    {id:'games',icon:'🎮',title:'5 rund proceduralnych',done:(homePlanState().games||0)>=5,run:'mentorStartGames()'}
+  ];
+}
+function bestStudyStreak(){
+  const days=[...new Set(state.studyDays||[])].sort();let best=0,current=0,last=null;
+  days.forEach(k=>{const d=new Date(k+'T12:00:00');if(last&&Math.round((d-last)/86400000)===1)current++;else current=1;best=Math.max(best,current);last=d});return best;
+}
+function latestUnlockedAchievement(){
+  const all=[];
+  try{ACHIEVEMENTS.forEach(a=>{if(a.ok())all.push({e:a.e,n:a.n,d:a.d})})}catch{}
+  try{ACADEMY_BADGES.forEach(a=>{if(a[3]())all.push({e:a[1],n:a[2],d:'Osiągnięcie Akademii Operatora'})})}catch{}
+  return all[all.length-1]||null;
+}
+function showSessionSetup(){
+  hideMainPanels();document.getElementById('setup').classList.remove('hidden');window.scrollTo({top:0,behavior:'smooth'});
+}
+function renderHomeDashboard(){
+  const dash=document.getElementById('dashboard');if(!dash||dash.classList.contains('hidden'))return;
+  const theory=mentorTheorySummary(),academy=mentorAcademySummary(),ready=mentorReadiness(theory,academy),hist=mentorReadinessHistory(ready),tone=mentorReadinessTone(ready),items=homePlanItems(theory,academy);
+  const done=items.filter(x=>x.done).length;
+  const readiness=document.getElementById('homeReadiness');readiness?.classList.remove('ready-good','ready-mid','ready-low');readiness?.classList.add(tone.cls);
+  const val=document.getElementById('homeReadyValue');if(val)val.textContent=`${tone.emoji} ${ready}%`;
+  const ring=document.getElementById('homeReadyRing');if(ring){ring.style.setProperty('--p',ready);ring.textContent=`${ready}%`}
+  const weakest=theory.cats.filter(x=>x.attempts>=2).sort((a,b)=>a.pct-b.pct||b.wrong-a.wrong)[0];
+  const text=document.getElementById('homeReadyText');if(text)text.textContent=weakest?`Najbardziej obniża wynik: ${weakest.name} (${weakest.pct}%). Kliknij, aby zobaczyć rozbicie.`:'Rozwiąż kilka pytań, aby Mentor mógł rzetelnie rozbić wynik.';
+  const list=document.getElementById('homePlanList');if(list)list.innerHTML=items.map(x=>`<button class="home-plan-item ${x.done?'done':''}" onclick="${x.run}"><span>${x.done?'✅':x.icon}</span><b>${escapeHtml(x.title)}</b><small>${x.done?'ukończone':'rozpocznij ›'}</small></button>`).join('');
+  const label=document.getElementById('homePlanLabel');if(label)label.textContent=`${done}/${items.length} ukończone`;
+  const bar=document.getElementById('homePlanBar');if(bar)bar.style.width=`${Math.round(done/items.length*100)}%`;
+  const cont=document.getElementById('homeContinueBtn');if(cont)cont.textContent=done===0?'▶ Rozpocznij plan dnia':done===items.length?'🎉 Powtórz trudne pytania':done===items.length-1?'🏁 Dokończ plan dnia':'▶ Kontynuuj trening';
+  document.getElementById('homeStreak').textContent=`${studyStreak()} dni`;
+  document.getElementById('homeBestStreak').textContent=`Rekord: ${bestStudyStreak()} dni`;
+  const delta=hist.delta;document.getElementById('homeProgressDelta').textContent=delta==null?'—':`${delta>=0?'⬆':'⬇'} ${Math.abs(delta)} pkt`;
+  document.getElementById('homeProgressText').textContent=delta==null?'Pierwszy pomiar gotowości':`${hist.previous}% → ${ready}% względem poprzedniego dnia`;
+  const ach=latestUnlockedAchievement();document.getElementById('homeAchievement').textContent=ach?`${ach.e} ${ach.n}`:'Jeszcze czeka';document.getElementById('homeAchievementText').textContent=ach?ach.d:'Pierwsze odblokujesz już po jednej odpowiedzi.';
+  document.getElementById('homeMentorTitle').textContent=weakest?`Dzisiaj: ${weakest.name}`:'Zbuduj pierwsze dane';
+  document.getElementById('homeMentorText').textContent=weakest?`Masz tu ${weakest.pct}% skuteczności i ${weakest.wrong} błędów. Zacznij plan od teorii, potem zrób obsługę i technologię.`:'Zrób krótką sesję ABC. Potem Mentor przestanie zgadywać i poda konkretny priorytet.';
+}
+const _backToMenu620=window.backToMenu;
+window.backToMenu=function(){_backToMenu620();document.getElementById('setup')?.classList.add('hidden');document.getElementById('dashboard')?.classList.remove('hidden');renderHomeDashboard()};
+const _updateDashboard620=window.updateDashboard;
+window.updateDashboard=function(){_updateDashboard620();renderHomeDashboard()};
+const _finish620=window.finish;
+window.finish=function(completed=false){const before=(state.history||[]).length;_finish620(completed);if((state.history||[]).length>before)markHomePlan('theory')};
+const _rateOral620=window.rateOral;
+window.rateOral=function(grade){_rateOral620(grade);markHomePlan('oral')};
+const _setTechStatus620=window.setTechStatus;
+window.setTechStatus=function(status){_setTechStatus620(status);markHomePlan('tech')};
+const _recordGame620=window.recordGame;
+window.recordGame=function(ok,xp){_recordGame620(ok,xp);markHomePlan('games',1)};
+setTimeout(()=>{document.getElementById('setup')?.classList.add('hidden');renderHomeDashboard()},0);

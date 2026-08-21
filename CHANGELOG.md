@@ -1,6 +1,13 @@
 # Changelog
 
-## 6.1.1
+## 6.2.0 — Centrum dowodzenia
+
+- Ekran Start stał się głównym centrum aplikacji.
+- Dodano duży wskaźnik gotowości, inteligentny przycisk kontynuacji, plan dnia, serię, ostatni postęp, osiągnięcie i komunikat Mentora.
+- Plan dnia zapisuje wykonanie teorii, zadania ustnego, technologii i pięciu rund gry.
+- Pozostałe funkcje przeniesiono do sekcji „Więcej opcji”.
+
+## 6.2.0
 ### Dodano
 - aktywny plan dnia Mentora,
 - historię gotowości do egzaminu i zmianę względem poprzedniego dnia,
@@ -11,7 +18,7 @@
 - wskaźnik gotowości jest większy i oznaczony kolorem,
 - sekcja „O co tu chodzi?” zawsze pokazuje zasadę, przykład i pułapkę,
 - powody odrzucenia błędnych odpowiedzi są zależne od tematu pytania,
-- wersję aplikacji i cache PWA do 6.1.1.
+- wersję aplikacji i cache PWA do 6.2.0.
 
 ## 6.1.0
 ### Dodano

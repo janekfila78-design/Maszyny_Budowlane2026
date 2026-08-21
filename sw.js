@@ -1,4 +1,4 @@
-const VERSION='udt-trainer-6.1.1-active-mentor';
+const VERSION='udt-trainer-6.2.0-active-mentor';
 const CACHE=VERSION;
 const ASSETS=["./", "./index.html", "./style.css", "./app.js", "./enhancements.js", "./udt4.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./crane_questions_1.js", "./crane_questions_2.js", "./crane_questions_3.js", "./crane_questions_4.js", "./excavator_questions_1.js", "./backhoe_questions_1.js", "./loader_questions_1.js", "./questions_init.js", "./oral_tasks.js", "./technology_tasks.js", "./oral_trainer.js", "./oral_ai.js", "./academy.js"];
 self.addEventListener('install',event=>{
