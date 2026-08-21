@@ -1,6 +1,6 @@
-const VERSION='udt-trainer-5.3.0-srs-refactor';
+const VERSION='udt-trainer-5.5.0-voice-ai';
 const CACHE=VERSION;
-const ASSETS=["./", "./index.html", "./style.css", "./app.js", "./enhancements.js", "./udt4.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./crane_questions_1.js", "./crane_questions_2.js", "./crane_questions_3.js", "./crane_questions_4.js", "./excavator_questions_1.js", "./backhoe_questions_1.js", "./loader_questions_1.js", "./questions_init.js"];
+const ASSETS=["./", "./index.html", "./style.css", "./app.js", "./enhancements.js", "./udt4.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./crane_questions_1.js", "./crane_questions_2.js", "./crane_questions_3.js", "./crane_questions_4.js", "./excavator_questions_1.js", "./backhoe_questions_1.js", "./loader_questions_1.js", "./questions_init.js", "./oral_tasks.js", "./oral_trainer.js", "./oral_ai.js"];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(async cache=>{
     for(const url of ASSETS){try{await cache.add(url)}catch(e){console.warn('cache skip',url,e)}}
