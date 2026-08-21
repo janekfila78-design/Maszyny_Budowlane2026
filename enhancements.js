@@ -1,6 +1,6 @@
 
 /* UDT Trainer 5.6.0 — PWA, offline, aktualizacje, chmura, statystyki, wyjaśnienia */
-const UDT_VERSION='6.1.0';
+const UDT_VERSION='6.1.1';
 let deferredInstallPrompt=null;
 let newWorkerWaiting=null;
 
@@ -225,7 +225,7 @@ document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLower
 window.addEventListener('DOMContentLoaded',()=>{ensureEnhancementUI();updateNetworkBadge();registerPWA();document.title=`UDT Trainer ${UDT_VERSION} Multi — trener operatora`;const h=document.getElementById('appTitle');if(h)h.textContent=`UDT Trainer ${UDT_VERSION} Multi`;const foot=document.querySelector('.footer');if(foot)foot.textContent=`UDT Trainer ${UDT_VERSION} Multi — PWA offline z automatycznymi aktualizacjami. Dane modułów są zapisywane osobno.`;});
 
 // === 6.1.0: wspólny Mentor + wyjaśnienia „O co tu chodzi?” ===
-const UDT_MENTOR_VERSION='6.1.0';
+const UDT_MENTOR_VERSION='6.1.1';
 
 function mentorCategory(text=''){
   const t=clean(text).toLowerCase();
@@ -346,3 +346,104 @@ window.explanationHTML=function(q,selectedIndex=null,expanded=false){
 };
 
 setTimeout(ensureUnifiedMentorUI,0);
+
+// === 6.1.1: aktywny Mentor, historia gotowości i trening jednym kliknięciem ===
+const MENTOR_HISTORY_KEY='udt_mentor_readiness_history_v1';
+function mentorDayKey(date=new Date()){return date.toISOString().slice(0,10)}
+function mentorReadinessHistory(current){
+  let history=[];try{history=JSON.parse(localStorage.getItem(MENTOR_HISTORY_KEY)||'[]')}catch{}
+  if(!Array.isArray(history))history=[];
+  const day=mentorDayKey();const last=history[history.length-1];
+  if(last?.day===day){last.value=current}else history.push({day,value:current});
+  history=history.slice(-90);localStorage.setItem(MENTOR_HISTORY_KEY,JSON.stringify(history));
+  const previous=[...history].reverse().find(x=>x.day!==day);
+  return {history,previous:previous?.value??null,delta:previous==null?null:current-previous.value};
+}
+function mentorReadinessTone(value){return value>=85?{emoji:'🟢',label:'Bardzo dobra gotowość',cls:'ready-good'}:value>=60?{emoji:'🟡',label:'Gotowość średnia',cls:'ready-mid'}:{emoji:'🔴',label:'Gotowość wymaga pracy',cls:'ready-low'}}
+function mentorQuestionsForCategory(machineId,category){
+  const m=MACHINE_META[machineId];if(!m)return [];
+  const st=mentorStoredState(machineId);
+  return m.questions.filter(q=>mentorCategory(q.q)===category).sort((a,b)=>{
+    const sa=st.stats?.[a.id]||{},sb=st.stats?.[b.id]||{};
+    const wa=(Number(sa.wrong)||0)*5-(Number(sa.correct)||0)+(sa.attempts?0:2);
+    const wb=(Number(sb.wrong)||0)*5-(Number(sb.correct)||0)+(sb.attempts?0:2);
+    return wb-wa;
+  });
+}
+window.mentorStartTheory=function(category){
+  const candidates=Object.keys(MACHINE_META).map(mid=>({mid,list:mentorQuestionsForCategory(mid,category)})).filter(x=>x.list.length).sort((a,b)=>b.list.length-a.list.length);
+  const chosen=candidates[0];if(!chosen){backToMenu();document.getElementById('source').value='weaknesses';startNew();return}
+  setMachine(chosen.mid);backToMenu();document.getElementById('mode').value='learn';document.getElementById('count').value=Math.min(10,chosen.list.length);startNew(chosen.list.slice(0,10));
+}
+function mentorPrimaryAction(theory,academy){
+  const weak=theory.cats.filter(x=>x.attempts>=2).sort((a,b)=>a.pct-b.pct||b.wrong-a.wrong)[0];
+  if(weak)return {label:`Kontynuuj: ${weak.name}`,run:()=>mentorStartTheory(weak.name)};
+  if(academy.oralAttempts===0||academy.oralWrong>0)return {label:'Kontynuuj: zadanie obsługowe',run:()=>mentorStartOral()};
+  if(academy.techKnown===0||academy.techRepeat>0)return {label:'Kontynuuj: technologia',run:()=>mentorStartTechnology()};
+  return {label:'Kontynuuj: trening mieszany',run:()=>mentorStartGames()};
+}
+window.mentorContinueLearning=function(){const t=mentorTheorySummary(),a=mentorAcademySummary();mentorPrimaryAction(t,a).run()}
+function mentorPlanDetailed(theory,academy){
+  const plan=[];const weakest=theory.cats.filter(x=>x.attempts>=2).slice(0,2);
+  weakest.forEach((x,i)=>plan.push({icon:'📖',title:`${i===0?'Najpierw: ':''}${x.name}`,detail:`${i===0?8:5} pytań • skuteczność ${x.pct}% • ${x.wrong} błędów`,action:`mentorStartTheory('${x.name.replace(/'/g,"\\'")}')`,label:`${i===0?8:5} pytań`}));
+  plan.push({icon:'🎙️',title:'Część obsługowa',detail:'1 zadanie ustne z oceną brakujących elementów',action:'mentorStartOral()',label:'1 zadanie'});
+  plan.push({icon:'🚜',title:'Technologia',detail:'1 pełna procedura technologiczna',action:'mentorStartTechnology()',label:'1 zadanie'});
+  if(academy.gamesPlayed<10||academy.gamesPct<80)plan.push({icon:'🎮',title:'Utrwalenie kolejności',detail:'5 krótkich rund proceduralnych',action:'mentorStartGames()',label:'5 rund'});
+  return plan.slice(0,5);
+}
+const _ensureUnifiedMentorUI611=window.ensureUnifiedMentorUI||ensureUnifiedMentorUI;
+window.ensureUnifiedMentorUI=function(){
+  _ensureUnifiedMentorUI611();
+  const recommend=document.getElementById('recommendBox');
+  if(recommend&&!document.getElementById('mentorDashboardCard'))recommend.insertAdjacentHTML('beforebegin','<div id="mentorDashboardCard" class="mentor-dashboard-card"><div><span>🧠 MENTOR</span><b id="mentorDashReady">0%</b><small id="mentorDashDelta">Gotowość do egzaminu</small></div><button class="mentor-continue" onclick="mentorContinueLearning()">▶ Kontynuuj naukę</button></div>');
+  updateMentorDashboard();
+}
+function updateMentorDashboard(){
+  const el=document.getElementById('mentorDashboardCard');if(!el)return;
+  const theory=mentorTheorySummary(),academy=mentorAcademySummary(),ready=mentorReadiness(theory,academy),hist=mentorReadinessHistory(ready),tone=mentorReadinessTone(ready);
+  el.classList.remove('ready-good','ready-mid','ready-low');el.classList.add(tone.cls);
+  document.getElementById('mentorDashReady').textContent=`${tone.emoji} ${ready}%`;
+  document.getElementById('mentorDashDelta').textContent=hist.delta===null?'Pierwszy zapis gotowości':`${hist.delta>=0?'↑':'↓'} ${Math.abs(hist.delta)} pkt od poprzedniego dnia`;
+}
+const _updateDashboard611=window.updateDashboard;
+window.updateDashboard=function(){_updateDashboard611();updateMentorDashboard()}
+window.showUnifiedMentor=function(){
+  ensureUnifiedMentorUI();hideMainPanels();document.getElementById('mentorPanel').classList.remove('hidden');
+  const theory=mentorTheorySummary(),academy=mentorAcademySummary(),ready=mentorReadiness(theory,academy),hist=mentorReadinessHistory(ready),tone=mentorReadinessTone(ready),plan=mentorPlanDetailed(theory,academy),weak=theory.cats.filter(x=>x.attempts>=2).slice(0,6);
+  const deltaText=hist.delta===null?'To pierwszy zapis — jutro zobaczysz porównanie.':`${hist.delta>=0?'⬆':'⬇'} ${Math.abs(hist.delta)} punktów względem poprzedniego dnia (${hist.previous}% → ${ready}%).`;
+  document.getElementById('mentorBody').innerHTML=`
+  <div class="mentor-readiness mentor-readiness-big ${tone.cls}"><div><span>GOTOWOŚĆ DO EGZAMINU</span><b>${tone.emoji} ${ready}%</b><h3>${tone.label}</h3><p>${deltaText}</p><button class="mentor-continue" onclick="mentorContinueLearning()">▶ Kontynuuj naukę</button></div><div class="readiness-ring" style="--p:${ready}">${ready}%</div></div>
+  <div class="mentor-card mentor-today"><h2>📋 Dzisiaj zrób</h2>${plan.map((x,i)=>`<button class="mentor-plan-row" onclick="${x.action}"><span>${x.icon}</span><div><b>${i+1}. ${escapeHtml(x.title)}</b><small>${escapeHtml(x.detail)}</small></div><strong>${escapeHtml(x.label)} ›</strong></button>`).join('')}</div>
+  <div class="mentor-overview"><div><b>${theory.pct}%</b><span>teoria ABC</span></div><div><b>${theory.totalSeen}/${theory.totalQuestions}</b><span>pytań poznanych</span></div><div><b>${academy.oralKnown}</b><span>obsługa: umiem</span></div><div><b>${academy.techKnown}</b><span>technologia: umiem</span></div><div><b>${academy.gamesPct}%</b><span>gry</span></div><div><b>${academy.examPct}%</b><span>egzaminy 1:1</span></div></div>
+  <div class="mentor-card"><h2>🎯 Kliknij słaby dział i ćwicz</h2>${weak.length?weak.map(x=>`<button class="mentor-skill mentor-skill-button" onclick="mentorStartTheory('${x.name.replace(/'/g,"\\'")}')"><div><b>${escapeHtml(x.name)}</b><span>${x.questions} pytań • ${x.wrong} błędów</span></div><strong>${x.pct}% ›</strong><div class="mini-progress"><div style="width:${x.pct}%"></div></div></button>`).join(''):'<p class="small">Za mało odpowiedzi do analizy działów.</p>'}</div>
+  <div class="mentor-card"><h2>Historia gotowości</h2>${hist.history.slice(-7).map(x=>`<div class="history-item"><span>${new Date(x.day+'T12:00:00').toLocaleDateString('pl-PL',{weekday:'short',day:'2-digit',month:'2-digit'})}</span><b>${x.value}%</b></div>`).join('')}</div>`;
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function mentorDistractorReason(q,index,data){
+  const text=answerText(q,index).toLowerCase(),question=clean(q.q).toLowerCase();
+  if(index===data.correctIndex)return 'realizuje właściwą zasadę i zachowuje bezpieczną kolejność działania.';
+  if(/pożar|zapali|pali się/.test(question)){
+    if(/ucie|oddal|opuści/.test(text))return 'pomija bezpieczne zatrzymanie maszyny; pozostawiony napęd lub podniesiony osprzęt mogą zwiększyć zagrożenie.';
+    if(/gasi|gaśnic/.test(text)&&!/zatrzym|poło|opuś/.test(text))return 'zaczyna gaszenie przed unieruchomieniem i zabezpieczeniem maszyny.';
+    if(/jecha|przemiesz|kontynu/.test(text))return 'przemieszczanie płonącej maszyny może rozwinąć pożar i zagrozić kolejnym osobom.';
+  }
+  if(/pierwsz.*pomoc|poszkod|resuscyt|aed|krwaw|oparze/.test(question))return 'nie zachowuje priorytetu ratowania życia albo może pogorszyć stan poszkodowanego.';
+  if(/hydraul|olej|smar|filtr|chłodz|paliw|ciśn/.test(question))return 'pomija właściwe warunki kontroli, wymagany parametr albo bezpieczną reakcję na nieprawidłowość.';
+  if(/statecz|podpor|grunt|wykop|skar[pb]|klin.*odłam/.test(question))return 'nie zapewnia wymaganej stateczności lub ignoruje wpływ podłoża, krawędzi i położenia maszyny.';
+  if(/linia.*elektro|napięci|poraż|przewod.*kv/.test(question))return 'nie odpowiada wymaganej strefie bezpieczeństwa dla podanego napięcia.';
+  return 'jest częściowo prawdziwa albo brzmi rozsądnie, ale nie spełnia wszystkich warunków zapisanych w pytaniu.';
+}
+window.explanationHTML=function(q,selectedIndex=null,expanded=false){
+  const d=richerExplanationData(q,selectedIndex),st=learningStatusFor(q),r=explanationRule(q,d.correct);
+  const alternatives=d.distractors.map(x=>`<li class="${x.correct?'goodText':''}"><b>${letter(x.i)}.</b> ${escapeHtml(x.text)} — ${escapeHtml(mentorDistractorReason(q,x.i,d))}</li>`).join('');
+  const trap=r.principle.includes('kolejność')?'Nie pomijaj pierwszego kroku bezpieczeństwa tylko dlatego, że dalsza czynność brzmi bardziej „aktywnie”.':(d.mistake||'Uważaj na odpowiedzi częściowo prawdziwe — komisja ocenia pełny warunek, nie ogólny sens.');
+  return `<div class="assistant-head"><span class="assistant-icon">🧠</span><div><b>O co tu chodzi?</b><span class="small">Zasada, przykład i pułapka — bez zapamiętywania litery</span></div></div>
+    <div class="assistant-correct"><span>📖 Poprawna odpowiedź</span><b>${letter(d.correctIndex)}. ${escapeHtml(d.correct)}</b></div>
+    <div class="assistant-section assistant-human"><b>🙂 Po ludzku</b><p>${escapeHtml(r.human)}</p></div>
+    <div class="assistant-section"><b>🧠 Zasada</b><p>${escapeHtml(r.principle)}</p></div>
+    <div class="assistant-section assistant-more"><b>🚜 Przykład z praktyki</b><p>${escapeHtml(r.practice)}</p></div>
+    <div class="assistant-section common-mistake"><b>⚠️ Pułapka egzaminatora</b><p>${escapeHtml(trap)}</p></div>
+    ${expanded?`<div class="assistant-section assistant-technical"><b>⚙️ Technicznie</b><p>${escapeHtml(d.technical)}</p></div><div class="assistant-section"><b>❌ Dlaczego pozostałe odpadają?</b><ul class="answer-reasons">${alternatives}</ul></div><div class="assistant-section memory-tip"><b>📋 Co zapamiętać</b><p>${escapeHtml(d.tip||r.principle)}</p></div>`:''}
+    ${st}<div class="assistant-actions"><button class="secondary mini-btn" onclick="showExplanation(${q.id},${selectedIndex===null?'null':Number(selectedIndex)},${expanded?'false':'true'})">${expanded?'Zwiń':'📖 Dlaczego inne są złe?'}</button><button class="secondary mini-btn" onclick="showUnifiedMentor()">🧠 Mentor</button></div>`;
+};
+setTimeout(()=>{ensureUnifiedMentorUI();updateMentorDashboard()},0);

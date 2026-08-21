@@ -1,5 +1,18 @@
 # Changelog
 
+## 6.1.1
+### Dodano
+- aktywny plan dnia Mentora,
+- historię gotowości do egzaminu i zmianę względem poprzedniego dnia,
+- duży przycisk „Kontynuuj naukę”,
+- klikalne słabe działy uruchamiające dopasowany trening.
+
+### Zmieniono
+- wskaźnik gotowości jest większy i oznaczony kolorem,
+- sekcja „O co tu chodzi?” zawsze pokazuje zasadę, przykład i pułapkę,
+- powody odrzucenia błędnych odpowiedzi są zależne od tematu pytania,
+- wersję aplikacji i cache PWA do 6.1.1.
+
 ## 6.1.0
 ### Dodano
 - wspólnego Mentora dla ABC, obsługi, technologii, gier i egzaminów próbnych,
