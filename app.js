@@ -191,7 +191,22 @@ function toggleFavorite(){const id=pool[current].id,i=state.favorites.indexOf(id
 function saveSession(){localStorage.setItem(SESSION_KEY,JSON.stringify({poolIds:pool.map(q=>q.id),current,correct,answered,mode,answersLog,examSimulator,examDeadline,examStartedAt,examAnswers,examFlags:[...examFlags]}))}
 function checkResume(){try{const s=JSON.parse(localStorage.getItem(SESSION_KEY)||'null');document.getElementById('resumeBtn').classList.toggle('hidden',!s||!s.poolIds?.length)}catch(e){document.getElementById('resumeBtn').classList.add('hidden')}}
 function resumeSession(){try{const s=JSON.parse(localStorage.getItem(SESSION_KEY));pool=s.poolIds.map(id=>QUESTIONS.find(q=>q.id===id)).filter(Boolean);current=s.current||0;correct=s.correct||0;answered=false;mode=s.mode||'learn';answersLog=s.answersLog||[];examSimulator=!!s.examSimulator;examDeadline=s.examDeadline||0;examStartedAt=s.examStartedAt||Date.now();examAnswers=s.examAnswers||{};examFlags=new Set(s.examFlags||[]);showQuiz();render();startExamTimer()}catch(e){localStorage.removeItem(SESSION_KEY);backToMenu()}}
-function updateDashboard(){const vals=Object.values(state.stats),attempts=vals.reduce((a,x)=>a+x.attempts,0),corrects=vals.reduce((a,x)=>a+x.correct,0),wrong=vals.filter(x=>x.wrong>0).length,seen=vals.filter(x=>x.attempts>0).length,mastery=masteryPercent(),lv=xpLevel();document.getElementById('dAccuracy').textContent=`${attempts?Math.round(corrects/attempts*100):0}%`;document.getElementById('dSeen').textContent=`${seen}/${QUESTIONS.length}`;document.getElementById('dWrong').textContent=wrong;document.getElementById('dStreak').textContent=`${studyStreak()} dni`;document.getElementById('dMastery').textContent=`${mastery}%`;document.getElementById('masteryBar').style.width=`${mastery}%`;document.getElementById('dLevel').textContent=`Poziom ${lv.level}`;document.getElementById('dXpText').textContent=`${state.xp||0} XP • do kolejnego: ${Math.max(0,lv.end-(state.xp||0))}`;document.getElementById('xpBar').style.width=`${lv.pct}%`;const due=srsDueQuestions(),hard=QUESTIONS.filter(q=>(state.stats[q.id]?.wrong||0)>0).sort((a,b)=>smartWeight(b)-smartWeight(a)).slice(0,3);document.getElementById('recommendText').textContent=due.length?`SRS czeka: ${due.length} pytań jest już do powtórki. Uruchom Inteligentne powtórki.`:hard.length?`Powtórz pytania ${hard.map(q=>q.id).join(', ')} — to obecnie Twoje najsłabsze punkty.`:seen?`Dobra robota. SRS sam przypomni pytania, gdy przyjdzie pora na utrwalenie.`:'Rozwiąż pierwszą sesję, a aplikacja wskaże słabe punkty.'}
+function updateDashboard(){
+  const vals=Object.values(state.stats),attempts=vals.reduce((a,x)=>a+x.attempts,0),corrects=vals.reduce((a,x)=>a+x.correct,0),wrong=vals.filter(x=>x.wrong>0).length,seen=vals.filter(x=>x.attempts>0).length,mastery=masteryPercent(),lv=xpLevel();
+  const setText=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value};
+  const setWidth=(id,value)=>{const el=document.getElementById(id);if(el)el.style.width=value};
+  setText('dAccuracy',`${attempts?Math.round(corrects/attempts*100):0}%`);
+  setText('dSeen',`${seen}/${QUESTIONS.length}`);
+  setText('dWrong',wrong);
+  setText('dStreak',`${studyStreak()} dni`);
+  setText('dMastery',`${mastery}%`);
+  setWidth('masteryBar',`${mastery}%`);
+  setText('dLevel',`Poziom ${lv.level}`);
+  setText('dXpText',`${state.xp||0} XP • do kolejnego: ${Math.max(0,lv.end-(state.xp||0))}`);
+  setWidth('xpBar',`${lv.pct}%`);
+  const due=srsDueQuestions(),hard=QUESTIONS.filter(q=>(state.stats[q.id]?.wrong||0)>0).sort((a,b)=>smartWeight(b)-smartWeight(a)).slice(0,3);
+  setText('recommendText',due.length?`SRS czeka: ${due.length} pytań jest już do powtórki. Uruchom Inteligentne powtórki.`:hard.length?`Powtórz pytania ${hard.map(q=>q.id).join(', ')} — to obecnie Twoje najsłabsze punkty.`:seen?`Dobra robota. SRS sam przypomni pytania, gdy przyjdzie pora na utrwalenie.`:'Rozwiąż pierwszą sesję, a aplikacja wskaże słabe punkty.');
+}
 function showStats(){hideMainPanels();document.getElementById('stats').classList.remove('hidden');const vals=Object.values(state.stats),attempts=vals.reduce((a,x)=>a+x.attempts,0),corrects=vals.reduce((a,x)=>a+x.correct,0);const hard=QUESTIONS.filter(q=>(state.stats[q.id]?.attempts||0)>0).sort((a,b)=>smartWeight(b)-smartWeight(a)).slice(0,12);let html=`<div class="row"><div class="stat"><span class="small">Łączne odpowiedzi</span><b>${attempts}</b></div><div class="stat"><span class="small">Poprawne</span><b>${corrects}</b></div><div class="stat"><span class="small">Najlepsza seria</span><b>${state.bestStreakCorrect||0}</b></div><div class="stat"><span class="small">Opanowanie</span><b>${masteryPercent()}%</b></div></div><h2 style="margin-top:18px">Najtrudniejsze pytania</h2>`;html+=hard.length?hard.map(q=>{const x=state.stats[q.id];return `<div class="history-item" onclick="openQuestionDetail(${q.id})" style="cursor:pointer"><span>Pytanie ${q.id}</span><b>${Math.round(x.correct/x.attempts*100)}% (${x.attempts} prób)</b></div>`}).join(''):'<p class="small">Brak danych.</p>';html+='<h2 style="margin-top:18px">Historia testów</h2>';html+=state.history.length?state.history.map(h=>`<div class="history-item"><span>${new Date(h.date).toLocaleString('pl-PL')} • ${h.mode==='exam'?'egzamin':'nauka'} • ${h.count} pytań</span><b>${h.pct}%</b></div>`).join(''):'<p class="small">Brak ukończonych testów.</p>';document.getElementById('statsBody').innerHTML=html}
 function hideMainPanels(){['setup','dashboard','quiz','result','stats','browser','questionDetail','achievements','diagnostics','academy'].forEach(id=>document.getElementById(id).classList.add('hidden'))}
 function hideStats(){backToMenu()}
@@ -239,7 +254,7 @@ function diagnosticChecks(){
   ['Funkcje silnika',funcs.every(n=>typeof window[n]==='function'),funcs.filter(n=>typeof window[n]!=='function').join(', ')||'komplet'],
   ['Pamięć lokalna',(()=>{try{const k='__udt_test__';localStorage.setItem(k,'1');localStorage.removeItem(k);return true}catch(e){return false}})(),'localStorage'],
   ['Obrazki w bazie',QUESTIONS.filter(q=>q.img).length===MACHINE_META[activeMachine].images,`${QUESTIONS.filter(q=>q.img).length} / ${MACHINE_META[activeMachine].images} ilustracji`],
-  ['Spójność wersji',document.title.includes('5.6.0')&&document.querySelector('h1')?.textContent.includes('5.6.0')&&document.querySelector('.footer')?.textContent.includes('5.6.0'),'tytuł, nagłówek i stopka']
+  ['Spójność wersji',document.title.includes('6.2.0')&&document.querySelector('h1')?.textContent.includes('6.2.0')&&document.querySelector('.footer')?.textContent.includes('6.2.0'),'tytuł, nagłówek i stopka']
  ];
  return checks;
 }
@@ -248,7 +263,7 @@ function runDiagnostics(){
  const body=document.getElementById('diagnosticsBody');
  body.innerHTML=checks.map(([name,ok,detail])=>`<div class="diag-item"><span><b>${escapeHtml(name)}</b><br><span class="small">${escapeHtml(String(detail))}</span></span><span class="${ok?'diag-ok':'diag-bad'}">${ok?'OK':'BŁĄD'}</span></div>`).join('');
  const passed=checks.filter(x=>x[1]).length;
- __lastDiagnosticText=`UDT Trainer 5.6.0 — diagnostyka\n${checks.map(([n,o,d])=>`${o?'OK':'BŁĄD'} | ${n} | ${d}`).join('\n')}\nWynik: ${passed}/${checks.length}`;
+ __lastDiagnosticText=`UDT Trainer 6.2.0 — diagnostyka\n${checks.map(([n,o,d])=>`${o?'OK':'BŁĄD'} | ${n} | ${d}`).join('\n')}\nWynik: ${passed}/${checks.length}`;
 }
 function showDiagnostics(){hideMainPanels();document.getElementById('diagnostics').classList.remove('hidden');runDiagnostics()}
 async function copyDiagnostics(){

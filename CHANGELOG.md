@@ -1,5 +1,13 @@
 # Changelog
 
+## 6.2.0 Hotfix 1
+
+### Naprawiono
+- awarię `updateDashboard()` po zastąpieniu starego panelu nowym ekranem Start,
+- bezpieczną aktualizację opcjonalnych elementów interfejsu,
+- niespójny numer wersji w diagnostyce,
+- wymuszenie odświeżenia cache PWA.
+
 ## 6.2.0 — Centrum dowodzenia
 
 - Ekran Start stał się głównym centrum aplikacji.
