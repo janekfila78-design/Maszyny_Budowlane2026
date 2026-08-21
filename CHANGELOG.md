@@ -1,3 +1,10 @@
+## 6.2.0 Hotfix 2
+
+- dodano `reset.html` do jednorazowego usunięcia starego Service Workera i cache,
+- HTML, JavaScript i CSS są pobierane w strategii network-first,
+- dodano wersjonowanie adresów zasobów, aby Samsung Browser nie uruchamiał starego `app.js`,
+- rejestracja Service Workera omija pamięć HTTP.
+
 # Changelog
 
 ## 6.2.0 Hotfix 1
