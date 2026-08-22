@@ -1,14 +1,14 @@
-const VERSION='udt-trainer-6.2.1-module-scope';
+const VERSION='udt-trainer-6.3.0-smart-explanations';
 const CACHE=VERSION;
 const ASSETS=[
-  './','./index.html','./reset.html','./style.css?v=6.2.1-module-scope',
-  './app.js?v=6.2.1-module-scope','./enhancements.js?v=6.2.1-module-scope','./udt4.js?v=6.2.1-module-scope',
+  './','./index.html','./reset.html','./style.css?v=6.3.0-smart-explanations',
+  './app.js?v=6.3.0-smart-explanations','./enhancements.js?v=6.3.0-smart-explanations','./udt4.js?v=6.3.0-smart-explanations',
   './manifest.webmanifest','./icon-192.png','./icon-512.png',
   './crane_questions_1.js','./crane_questions_2.js','./crane_questions_3.js','./crane_questions_4.js',
   './excavator_questions_1.js','./backhoe_questions_1.js','./loader_questions_1.js',
-  './questions_init.js?v=6.2.1-module-scope','./oral_tasks.js?v=6.2.1-module-scope',
-  './technology_tasks.js?v=6.2.1-module-scope','./oral_trainer.js?v=6.2.1-module-scope',
-  './oral_ai.js?v=6.2.1-module-scope','./academy.js?v=6.2.1-module-scope'
+  './questions_init.js?v=6.3.0-smart-explanations','./oral_tasks.js?v=6.3.0-smart-explanations',
+  './technology_tasks.js?v=6.3.0-smart-explanations','./oral_trainer.js?v=6.3.0-smart-explanations',
+  './oral_ai.js?v=6.3.0-smart-explanations','./academy.js?v=6.3.0-smart-explanations'
 ];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(async cache=>{

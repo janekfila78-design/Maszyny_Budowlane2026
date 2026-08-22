@@ -1,3 +1,13 @@
+# Changelog
+
+## 6.3.0 — Inteligentne wyjaśnienia
+
+- dodano automatyczne rozpoznawanie typu pytania: element maszyny, zasada działania, BHP, technologia i eksploatacja,
+- wyjaśnienia opisują teraz funkcję elementu, mechanizm, zagrożenie, kolejność robót albo skutek błędnej eksploatacji,
+- dodano bazę funkcji najczęstszych podzespołów maszyn,
+- odpowiedzi błędne są odrzucane z konkretnym uzasadnieniem zamiast uniwersalnego szablonu,
+- zaktualizowano diagnostykę, wersję i cache PWA.
+
 # CHANGELOG
 
 ## 6.2.1 — Poprawka zakresu modułu

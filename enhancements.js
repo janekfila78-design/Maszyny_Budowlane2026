@@ -1,6 +1,6 @@
 
 /* UDT Trainer 5.6.0 — PWA, offline, aktualizacje, chmura, statystyki, wyjaśnienia */
-const UDT_VERSION='6.2.1';
+const UDT_VERSION='6.3.0';
 let deferredInstallPrompt=null;
 let newWorkerWaiting=null;
 
@@ -42,7 +42,7 @@ async function installPWA(){if(!deferredInstallPrompt){alert('Jeśli przycisk in
 async function registerPWA(){
  if(!('serviceWorker' in navigator)||location.protocol==='file:')return;
  try{
-   const reg=await navigator.serviceWorker.register('./sw.js?v=6.2.1-module-scope',{updateViaCache:'none'});
+   const reg=await navigator.serviceWorker.register('./sw.js?v=6.3.0-smart-explanations',{updateViaCache:'none'});
    if(reg.waiting)showUpdate(reg.waiting);
    reg.addEventListener('updatefound',()=>{const w=reg.installing;if(!w)return;w.addEventListener('statechange',()=>{if(w.state==='installed'&&navigator.serviceWorker.controller)showUpdate(w)})});
    setInterval(()=>reg.update().catch(()=>{}),15*60*1000);
@@ -516,3 +516,130 @@ window.setTechStatus=function(status){_setTechStatus620(status);markHomePlan('te
 const _recordGame620=window.recordGame;
 window.recordGame=function(ok,xp){_recordGame620(ok,xp);markHomePlan('games',1)};
 setTimeout(()=>{document.getElementById('setup')?.classList.add('hidden');renderHomeDashboard()},0);
+
+// === 6.3.0: wyjaśnienia zależne od typu pytania ===
+const EXPLANATION_ENGINE_VERSION='6.3.0';
+
+function detectQuestionType(q){
+  const question=clean(q?.q||'').toLowerCase();
+  const answers=(q?.a||[]).map(a=>clean(typeof a==='string'?a:(a?.text||a?.answer||''))).join(' ').toLowerCase();
+  const all=`${question} ${answers}`;
+  if(/bhp|bezpiecz|zagroż|nie wolno|zabron|poraż|pożar|wypad|poszkod|pierwsz.*pomoc|strefa niebezpieczna|klin odłamu|przewróc|stateczno/.test(all))return 'safety';
+  if(/kolejno|technolog|wykop|nasyp|plantow|profilow|załad|urobek|skar[pb]|zagęszcz|odspaj|zasyp|równan|wykonanie robót/.test(all))return 'technology';
+  if(/obsług|eksploat|kontrol|sprawd|uzupeł|wymian|smarow|poziom oleju|filtr|przegląd|uruchom|wyłącz|temperatur|ciśnienie/.test(all))return 'operation';
+  if(/jak działa|zasad.*dział|powoduje|w wyniku|dlaczego|mechanizm|przekazuje|zmniejsza|zwiększa|wytwarza|kieruje przepływ/.test(all))return 'principle';
+  if(/który.*element|co to jest|służy do|odpowiada za|znajduje się|nazywa się|jest częścią|zwolnic|rozdzielacz|hamulce|pompa|siłownik|przekładnia|akumulator|alternator|rozrusznik|sworzeń|tuleja/.test(all))return 'machine_part';
+  return 'principle';
+}
+
+const MACHINE_PART_KNOWLEDGE=[
+  [/zwolnic.{0,20}planetar/i,{name:'zwolnice planetarne',fn:'redukują prędkość obrotową i zwiększają moment obrotowy przekazywany na koła lub gąsienice',where:'są umieszczone w końcowej części układu napędowego, przy kołach lub kołach napędowych gąsienic',failure:'ich zużycie może powodować hałas, luzy, przegrzewanie i utratę siły napędowej',memory:'Zwolnica = wolniej na wyjściu, ale z większym momentem.'}],
+  [/rozdzielacz.{0,20}hydraul/i,{name:'rozdzielacz hydrauliczny',fn:'kieruje strumień oleju hydraulicznego do wybranego odbiornika, np. siłownika lub silnika hydraulicznego',where:'znajduje się w układzie hydraulicznym pomiędzy pompą a odbiornikami',failure:'usterka powoduje brak, opóźnienie lub niekontrolowany ruch funkcji roboczej',memory:'Rozdzielacz rozdziela olej — nie przenosi napędu mechanicznego na koła.'}],
+  [/hamulc.{0,15}mokr/i,{name:'hamulce mokre',fn:'wyhamowują maszynę, a ich tarcze pracują w kąpieli olejowej, co poprawia chłodzenie i trwałość',where:'są zabudowane w moście lub piaście układu jezdnego',failure:'zużycie może wydłużyć drogę hamowania lub osłabić skuteczność hamulca',memory:'Hamulce mokre = hamowanie; olej je chłodzi i smaruje.'}],
+  [/pompa.{0,20}hydraul/i,{name:'pompa hydrauliczna',fn:'wytwarza przepływ oleju; ciśnienie pojawia się, gdy przepływ napotyka opór',where:'jest napędzana przez silnik i zasila układ hydrauliczny',failure:'uszkodzenie powoduje spadek wydajności, hałas, przegrzewanie lub brak ruchów roboczych',memory:'Pompa daje przepływ, obciążenie tworzy ciśnienie.'}],
+  [/siłownik.{0,20}hydraul/i,{name:'siłownik hydrauliczny',fn:'zamienia energię ciśnienia oleju na ruch liniowy i siłę',where:'łączy układ hydrauliczny z elementem roboczym maszyny',failure:'nieszczelność powoduje opadanie osprzętu, słabą siłę lub nierówny ruch',memory:'Siłownik = ruch prostoliniowy.'}],
+  [/silnik.{0,20}hydraul/i,{name:'silnik hydrauliczny',fn:'zamienia energię hydrauliczną na ruch obrotowy',where:'napędza elementy wymagające obrotu, np. jazdę, obrót nadwozia lub osprzęt',failure:'usterka objawia się spadkiem momentu, nierówną pracą lub brakiem obrotu',memory:'Silnik hydrauliczny = obrót.'}],
+  [/akumulator/i,{name:'akumulator',fn:'magazynuje energię elektryczną i zasila rozrusznik oraz odbiorniki przy wyłączonym silniku',where:'jest częścią instalacji elektrycznej maszyny',failure:'słaby akumulator utrudnia rozruch i powoduje spadki napięcia',memory:'Akumulator magazynuje energię; alternator ją uzupełnia.'}],
+  [/alternator/i,{name:'alternator',fn:'wytwarza energię elektryczną podczas pracy silnika i ładuje akumulator',where:'jest napędzany mechanicznie przez silnik',failure:'awaria powoduje rozładowywanie akumulatora i zapalenie kontrolki ładowania',memory:'Alternator ładuje podczas pracy silnika.'}],
+  [/rozrusznik/i,{name:'rozrusznik',fn:'obraca wałem silnika podczas uruchamiania',where:'jest połączony z kołem zamachowym silnika',failure:'awaria uniemożliwia rozruch mimo sprawnego akumulatora',memory:'Rozrusznik uruchamia, ale nie ładuje.'}],
+  [/filtr.{0,20}powiet/i,{name:'filtr powietrza',fn:'zatrzymuje pył przed dostaniem się do silnika',where:'znajduje się w układzie dolotowym',failure:'zabrudzenie ogranicza dopływ powietrza, zwiększa zużycie paliwa i może obniżyć moc',memory:'Czyste powietrze chroni cylindry i turbosprężarkę.'}],
+  [/filtr.{0,20}olej/i,{name:'filtr oleju',fn:'usuwa zanieczyszczenia z oleju krążącego w układzie smarowania',where:'jest w obiegu oleju silnikowego lub hydraulicznego — zależnie od pytania',failure:'zatkanie lub uszkodzenie pogarsza smarowanie i przyspiesza zużycie podzespołów',memory:'Filtr chroni układ, ale nie zastępuje wymiany oleju.'}],
+  [/chłodnic/i,{name:'chłodnica',fn:'oddaje ciepło z cieczy chłodzącej lub oleju do otoczenia',where:'jest w przepływie powietrza przedziału silnikowego',failure:'zabrudzenie lub nieszczelność prowadzi do przegrzewania',memory:'Chłodnica usuwa ciepło; zabrudzone lamele ograniczają chłodzenie.'}],
+  [/mechanizm.{0,20}różnic/i,{name:'mechanizm różnicowy',fn:'umożliwia kołom jednej osi obracanie się z różnymi prędkościami podczas skrętu',where:'znajduje się w moście napędowym',failure:'usterka powoduje hałas, szarpanie lub problemy z przeniesieniem napędu',memory:'Mechanizm różnicowy pozwala kołom różnić się prędkością.'}],
+  [/przekładni/i,{name:'przekładnia',fn:'zmienia prędkość obrotową, moment lub kierunek przenoszenia napędu',where:'jest elementem układu napędowego',failure:'zużycie objawia się hałasem, luzem, przegrzewaniem lub utratą napędu',memory:'Przekładnia zmienia parametry ruchu.'}],
+  [/sworz/i,{name:'sworzeń',fn:'tworzy ruchome połączenie przegubowe elementów osprzętu',where:'występuje w połączeniach wysięgnika, ramienia, łyżki i siłowników',failure:'brak smarowania lub zabezpieczenia powoduje luzy, zużycie i ryzyko rozłączenia',memory:'Sworzeń łączy, tuleja prowadzi i przyjmuje zużycie.'}],
+  [/tulej/i,{name:'tuleja',fn:'prowadzi sworzeń i stanowi wymienną powierzchnię współpracującą w przegubie',where:'jest osadzona w otworach połączeń ruchomych',failure:'zużycie zwiększa luzy i pogarsza precyzję pracy osprzętu',memory:'Tuleja zużywa się zamiast droższego elementu konstrukcyjnego.'}],
+  [/zawór.{0,20}przelew|zawór.{0,20}bezpiecz/i,{name:'zawór przelewowy',fn:'ogranicza maksymalne ciśnienie i chroni układ hydrauliczny przed przeciążeniem',where:'łączy linię ciśnieniową ze zbiornikiem po przekroczeniu nastawy',failure:'zacięcie może powodować zbyt wysokie ciśnienie albo brak siły układu',memory:'Zawór przelewowy jest bezpiecznikiem ciśnienia.'}]
+];
+
+function machinePartInfo(text=''){
+  return (MACHINE_PART_KNOWLEDGE.find(([rx])=>rx.test(text))||[])[1]||null;
+}
+
+function domainMechanism(text=''){
+  const t=text.toLowerCase();
+  if(/hydraul|olej|pompa|rozdzielacz|siłownik/.test(t))return 'Pompa wytwarza przepływ oleju, rozdzielacz kieruje go do odbiornika, a opór obciążenia powoduje wzrost ciśnienia. Odbiornik zamienia energię oleju na ruch.';
+  if(/napęd|przekład|zwolnic|moment|obrot/.test(t))return 'Układ napędowy przekazuje moment od silnika przez kolejne przekładnie. Zmniejszenie prędkości obrotowej pozwala zwiększyć moment dostępny na kołach lub gąsienicach.';
+  if(/chłodz|temperatur|termostat/.test(t))return 'Ciepło jest odbierane od silnika przez ciecz lub powietrze, a następnie oddawane do otoczenia. Prawidłowy przepływ i czysta chłodnica utrzymują temperaturę roboczą.';
+  if(/elektr|akumulator|alternator|rozrusznik/.test(t))return 'Akumulator dostarcza energię przy rozruchu, rozrusznik obraca silnikiem, a alternator po uruchomieniu zasila instalację i doładowuje akumulator.';
+  if(/hamul/.test(t))return 'Układ hamulcowy zamienia energię ruchu maszyny na ciepło i wytwarza siłę przeciwną do ruchu. Skuteczność zależy od stanu elementów, ciśnienia i regulacji.';
+  return 'Prawidłowa odpowiedź opisuje zależność przyczyna → działanie elementu lub układu → skutek. Pozostałe warianty dotyczą innej funkcji albo odwracają tę zależność.';
+}
+
+function safetyExplanation(q,correct){
+  const t=`${clean(q.q)} ${correct}`.toLowerCase();
+  let hazard='uraz człowieka, niekontrolowany ruch maszyny lub uszkodzenie sprzętu';
+  let rule='Najpierw usuń albo ogranicz bezpośrednie zagrożenie, następnie zabezpiecz maszynę i dopiero wykonuj dalsze czynności.';
+  let practice='Operator przed ruchem sprawdza strefę, stabilność maszyny i możliwość bezpiecznego zatrzymania.';
+  if(/podniesion|osprzęt|łyżk/.test(t)){hazard='nagłe opadnięcie osprzętu po awarii hydrauliki lub błędzie sterowania';rule='Nie wchodź pod podniesiony osprzęt bez przewidzianego zabezpieczenia mechanicznego.';practice='Samo wyłączenie silnika nie gwarantuje, że osprzęt nie opadnie.'}
+  else if(/prąd|napięci|linia|poraż/.test(t)){hazard='porażenie lub przeskok łuku elektrycznego nawet bez dotknięcia przewodu';rule='Zachowaj odległość wynikającą z napięcia i procedur, a pracę uzgodnij z zarządcą sieci.';practice='Wysięgnik może wejść w strefę niebezpieczną mimo że kabina pozostaje daleko.'}
+  else if(/pożar|pali się/.test(t)){hazard='rozprzestrzenienie pożaru, wybuch paliwa lub oleju i niekontrolowany ruch';rule='Zatrzymaj maszynę, opuść osprzęt, wyłącz silnik, ewakuuj ludzi i gaś tylko wtedy, gdy jest to bezpieczne.';practice='Gaszenie przed wyłączeniem napędu może zostawić dodatkowe źródło paliwa i ruchu.'}
+  else if(/skar[pb]|wykop|klin odłamu|krawęd/.test(t)){hazard='załamanie gruntu i zsunięcie lub przewrócenie maszyny';rule='Zachowaj bezpieczną odległość od krawędzi wynikającą z rodzaju gruntu i geometrii wykopu.';practice='Grunt przy krawędzi może wyglądać stabilnie, ale być podcięty lub nawodniony.'}
+  return {human:`Ta odpowiedź chroni przed zagrożeniem: ${hazard}.`,principle:rule,technical:`Zasada BHP nie jest formalnością — usuwa konkretną drogę powstania wypadku: ${hazard}.`,practice,tip:`Zapamiętaj: rozpoznaj zagrożenie → zabezpiecz ludzi i maszynę → dopiero działaj.`,trap:'Odpowiedź brzmiąca „szybko” lub „aktywnie” może być błędna, jeżeli pomija zabezpieczenie miejsca i maszyny.'};
+}
+
+function technologyExplanation(q,correct){
+  const t=`${clean(q.q)} ${correct}`.toLowerCase();
+  let sequence='ocena miejsca → ustawienie i zabezpieczenie maszyny → wykonanie ruchów roboczych → kontrola efektu → bezpieczne zakończenie';
+  if(/załad/.test(t))sequence='ustaw maszynę i środek transportu → nabierz materiał → unieś tylko na potrzebną wysokość → obróć bez przechodzenia nad kabiną → wysyp kontrolowanie → wróć po kolejny cykl';
+  else if(/wykop/.test(t))sequence='wyznacz obrys i sprawdź uzbrojenie → ustaw maszynę poza strefą utraty stateczności → odspajaj warstwami → odkładaj urobek bez przeciążania krawędzi → kontroluj wymiary i skarpę';
+  else if(/zasyp/.test(t))sequence='sprawdź gotowość wykopu i instalacji → dobierz materiał → zasypuj warstwami → rozkładaj równomiernie → zagęszczaj zgodnie z wymaganiami → kontroluj poziom';
+  else if(/plantow|równan|profilow/.test(t))sequence='wyznacz poziom lub spadek → wykonuj długie, płynne przejścia → zdejmuj niewielkie warstwy → kontroluj rzędne → popraw nierówności bez nadmiernego rozluźniania gruntu';
+  return {human:`To pytanie sprawdza właściwą kolejność robót. Najprościej: ${sequence}.`,principle:'Najpierw przygotowanie i bezpieczeństwo, potem właściwa praca, na końcu kontrola efektu i zabezpieczenie maszyny.',technical:`Technologia robót wymaga zachowania kolejności: ${sequence}. Zmiana kolejności może pogorszyć stateczność, dokładność albo bezpieczeństwo.`,practice:'Egzaminator patrzy nie tylko na wynik końcowy, ale także na ustawienie maszyny, płynność, obserwację otoczenia i zbędne ruchy.',tip:`Kolejność: przygotuj → wykonaj → kontroluj → zakończ.`,trap:'Nie zaczynaj ruchu roboczego, zanim nie sprawdzisz otoczenia, podłoża i strefy pracy.'};
+}
+
+function operationExplanation(q,correct){
+  const t=`${clean(q.q)} ${correct}`.toLowerCase();
+  let consequence='przyspieszone zużycie, awarię podzespołu albo stworzenie zagrożenia podczas pracy';
+  let action='wykonaj kontrolę w warunkach podanych przez producenta, porównaj wynik z zakresem dopuszczalnym i zareaguj na odchylenie';
+  if(/olej/.test(t))consequence='brak smarowania, przegrzewanie, kawitację lub uszkodzenie pompy i elementów współpracujących';
+  if(/filtr/.test(t))consequence='ograniczenie przepływu, spadek mocy, wzrost temperatury lub przedostanie się zanieczyszczeń do układu';
+  if(/chłodz|temperatur/.test(t))consequence='przegrzanie silnika, utratę właściwości oleju i kosztowne uszkodzenie';
+  if(/opon|gąsien/.test(t))consequence='pogorszenie stateczności, sterowności, nadmierne zużycie i ryzyko uszkodzenia układu jezdnego';
+  return {human:`Chodzi o to, żeby wykryć problem przed rozpoczęciem pracy. Pominięcie tej czynności może spowodować ${consequence}.`,principle:'Obsługa codzienna ma trzy części: prawidłowe warunki kontroli, ocena wyniku i właściwa reakcja na nieprawidłowość.',technical:`Prawidłowo: ${action}. Nieprawidłowy wynik oznacza uzupełnienie właściwym środkiem, wyłączenie maszyny z pracy albo zgłoszenie usterki — zależnie od instrukcji.`,practice:'Drobny wyciek lub nietypowy hałas zauważony przed zmianą może zapobiec awarii w środku zadania.',tip:'Sprawdź → oceń → zareaguj. Samo spojrzenie bez decyzji nie jest obsługą.',trap:'Najczęstszy błąd to prawidłowo wskazać element, ale pominąć warunki pomiaru lub reakcję na zły wynik.'};
+}
+
+function principleExplanation(q,correct){
+  const text=`${clean(q.q)} ${correct}`;
+  const part=machinePartInfo(correct);
+  if(part)return {human:`${part.name} ${part.fn}.`,principle:`Element rozpoznajesz po funkcji: ${part.fn}.`,technical:`${part.name}: ${part.fn}; ${part.where}.`,practice:`Gdy ten element nie działa prawidłowo, ${part.failure}.`,tip:part.memory,trap:'Nie wybieraj elementu tylko dlatego, że występuje w tej samej maszynie — musi wykonywać dokładnie funkcję opisaną w pytaniu.'};
+  return {human:domainMechanism(text),principle:'Rozłóż mechanizm na trzy pytania: co dostarcza energię, co nią steruje i jaki element wykonuje pracę.',technical:domainMechanism(text),practice:'Na maszynie objaw usterki często wskazuje, na którym etapie łańcucha przekazywania energii wystąpił problem.',tip:'Źródło energii → sterowanie → odbiornik → efekt.',trap:'Odpowiedzi mogą nazywać elementy tego samego układu, ale każdy z nich ma inną rolę.'};
+}
+
+function machinePartExplanation(q,correct){
+  const part=machinePartInfo(correct)||machinePartInfo(clean(q.q));
+  if(part)return {human:`${part.name} służy do tego, że ${part.fn}.`,principle:`Pytanie rozpoznajesz po funkcji elementu: ${part.fn}.`,technical:`${part.name} ${part.where} i ${part.fn}.`,practice:`Objaw uszkodzenia: ${part.failure}.`,tip:part.memory,trap:'Nie myl elementów znajdujących się w tej samej okolicy maszyny — porównuj ich funkcje, nie nazwy.'};
+  return {human:`Pytanie wymaga dopasowania nazwy elementu do funkcji opisanej w treści. Poprawny element to „${correct}”.`,principle:'Element maszyny identyfikuje się przez funkcję, miejsce w układzie i skutek jego działania.',technical:`„${correct}” jest poprawne, ponieważ jako jedyne odpowiada funkcji opisanej w pytaniu.`,practice:'Na maszynie wskaż element, powiedz co do niego dopływa, co z niego wychodzi i jaki ruch lub efekt powoduje.',tip:`Nazwa elementu → funkcja → miejsce w układzie → objaw awarii.`,trap:'Odpowiedź z tej samej grupy podzespołów nie jest automatycznie poprawna.'};
+}
+
+function typedExplanation(q,correct){
+  const type=detectQuestionType(q);
+  const data=type==='machine_part'?machinePartExplanation(q,correct):type==='safety'?safetyExplanation(q,correct):type==='technology'?technologyExplanation(q,correct):type==='operation'?operationExplanation(q,correct):principleExplanation(q,correct);
+  const meta={machine_part:['🔧','Element maszyny'],principle:['⚙️','Zasada działania'],safety:['🦺','BHP i zagrożenie'],technology:['📏','Technologia robót'],operation:['🚜','Eksploatacja']}[type];
+  return {...data,type,typeIcon:meta[0],typeLabel:meta[1]};
+}
+
+function typedDistractorReason(q,index,d){
+  if(index===d.correctIndex)return 'to odpowiedź poprawna — pasuje do funkcji lub zasady opisanej w pytaniu.';
+  const answer=answerText(q,index),part=machinePartInfo(answer),type=d.questionType;
+  if(part)return `${part.name} ${part.fn}, więc nie realizuje funkcji wymaganej w tym pytaniu.`;
+  if(type==='safety')return 'pomija wskazane zagrożenie, właściwe zabezpieczenie albo bezpieczną kolejność działania.';
+  if(type==='technology')return 'ustawia czynności w złej kolejności albo pomija przygotowanie, kontrolę efektu lub bezpieczne zakończenie.';
+  if(type==='operation')return 'nie zapewnia prawidłowych warunków kontroli, właściwej reakcji na wynik albo może doprowadzić do uszkodzenia.';
+  if(type==='principle')return 'opisuje inny etap mechanizmu, inny kierunek przepływu energii albo myli przyczynę ze skutkiem.';
+  return 'dotyczy innego elementu lub funkcji niż ta opisana w pytaniu.';
+}
+
+window.explanationHTML=function(q,selectedIndex=null,expanded=false){
+  const d=richerExplanationData(q,selectedIndex),st=learningStatusFor(q),r=typedExplanation(q,d.correct);
+  d.questionType=r.type;
+  const alternatives=d.distractors.map(x=>`<li class="${x.correct?'goodText':''}"><b>${letter(x.i)}.</b> ${escapeHtml(x.text)} — ${escapeHtml(typedDistractorReason(q,x.i,d))}</li>`).join('');
+  return `<div class="assistant-head"><span class="assistant-icon">🧠</span><div><b>O co tu chodzi?</b><span class="small">${r.typeIcon} ${escapeHtml(r.typeLabel)} • wyjaśnienie dopasowane do pytania</span></div></div>
+    <div class="assistant-correct"><span>📖 Poprawna odpowiedź</span><b>${letter(d.correctIndex)}. ${escapeHtml(d.correct)}</b></div>
+    <div class="assistant-section assistant-human"><b>🙂 Po ludzku</b><p>${escapeHtml(r.human)}</p></div>
+    <div class="assistant-section"><b>${r.typeIcon} ${escapeHtml(r.typeLabel)}</b><p>${escapeHtml(r.principle)}</p></div>
+    <div class="assistant-section assistant-more"><b>🚜 Przykład / skutek w praktyce</b><p>${escapeHtml(r.practice)}</p></div>
+    <div class="assistant-section common-mistake"><b>⚠️ Pułapka egzaminatora</b><p>${escapeHtml(r.trap)}</p></div>
+    ${expanded?`<div class="assistant-section assistant-technical"><b>⚙️ Technicznie</b><p>${escapeHtml(r.technical)}</p></div><div class="assistant-section"><b>❌ Dlaczego pozostałe odpadają?</b><ul class="answer-reasons">${alternatives}</ul></div><div class="assistant-section memory-tip"><b>📋 Co zapamiętać</b><p>${escapeHtml(r.tip)}</p></div>`:''}
+    ${st}<div class="assistant-actions"><button class="secondary mini-btn" onclick="showExplanation(${q.id},${selectedIndex===null?'null':Number(selectedIndex)},${expanded?'false':'true'})">${expanded?'Zwiń':'📖 Dlaczego inne są złe?'}</button><button class="secondary mini-btn" onclick="showUnifiedMentor()">🧠 Mentor</button></div>`;
+};
