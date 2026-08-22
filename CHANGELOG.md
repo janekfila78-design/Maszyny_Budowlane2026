@@ -1,5 +1,12 @@
 # Changelog
 
+## 6.2.0 Stable 2
+
+### Naprawiono
+- Diagnostyka sprawdza elementy nowego Centrum Dowodzenia zamiast usuniętych pól starego dashboardu (`dSeen`, `dAccuracy`).
+- Test interfejsu powinien ponownie zwracać 8/8.
+
+
 ## 6.2.0 Stable 1
 
 ### Naprawiono

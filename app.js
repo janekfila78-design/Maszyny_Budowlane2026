@@ -244,7 +244,7 @@ function showRuntimeError(message,source,line,col,error){
 window.addEventListener('error',e=>showRuntimeError(e.message,e.filename,e.lineno,e.colno,e.error));
 window.addEventListener('unhandledrejection',e=>showRuntimeError('Nieobsłużony błąd Promise: '+(e.reason?.message||e.reason||'brak szczegółów'),'','','',e.reason));
 function diagnosticChecks(){
- const ids=['setup','dashboard','quiz','result','stats','browser','achievements','source','mode','count','dSeen','dAccuracy','q','answers','next','timerStat','examTimer','examNavigator','flagBtn'];
+ const ids=['setup','dashboard','quiz','result','stats','browser','achievements','source','mode','count','homeReadiness','homeReadyValue','homeContinueBtn','homePlanList','homePlanBar','q','answers','next','timerStat','examTimer','examNavigator','flagBtn'];
  const funcs=['startNew','render','choose','nextQuestion','finish','backToMenu','showStats','showQuestionBrowser','showAchievements','exportData','importData','startExamSimulator','startDailyChallenge','startWeaknessTraining','goToExamQuestion','toggleExamFlag'];
  const checks=[
   ['Baza pytań',Array.isArray(QUESTIONS)&&QUESTIONS.length===MACHINE_META[activeMachine].questions.length,Array.isArray(QUESTIONS)?`${QUESTIONS.length} pytań (${MACHINE_META[activeMachine].short})`:'brak tablicy'],
