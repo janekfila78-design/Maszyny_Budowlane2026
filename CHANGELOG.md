@@ -1,4 +1,11 @@
-# Changelog
+# CHANGELOG
+
+## 6.2.1 — Poprawka zakresu modułu
+
+- Mentor, plan dnia, gotowość i słabe działy analizują wyłącznie aktywną maszynę.
+- „Kontynuuj naukę” i trening działu nie przełączają już samoczynnie na koparkoładowarkę.
+- Dane Akademii są zapisywane osobno dla koparki i koparkoładowarki.
+- Treningi praktyczne niedostępne w danym module pokazują komunikat zamiast zmieniać moduł.
 
 ## 6.2.0 Stable 2
 

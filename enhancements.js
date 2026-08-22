@@ -1,6 +1,6 @@
 
 /* UDT Trainer 5.6.0 — PWA, offline, aktualizacje, chmura, statystyki, wyjaśnienia */
-const UDT_VERSION='6.2.0';
+const UDT_VERSION='6.2.1';
 let deferredInstallPrompt=null;
 let newWorkerWaiting=null;
 
@@ -42,7 +42,7 @@ async function installPWA(){if(!deferredInstallPrompt){alert('Jeśli przycisk in
 async function registerPWA(){
  if(!('serviceWorker' in navigator)||location.protocol==='file:')return;
  try{
-   const reg=await navigator.serviceWorker.register('./sw.js?v=6.2.0-hotfix2',{updateViaCache:'none'});
+   const reg=await navigator.serviceWorker.register('./sw.js?v=6.2.1-module-scope',{updateViaCache:'none'});
    if(reg.waiting)showUpdate(reg.waiting);
    reg.addEventListener('updatefound',()=>{const w=reg.installing;if(!w)return;w.addEventListener('statechange',()=>{if(w.state==='installed'&&navigator.serviceWorker.controller)showUpdate(w)})});
    setInterval(()=>reg.update().catch(()=>{}),15*60*1000);
@@ -247,25 +247,26 @@ function mentorStoredState(machineId){
   const m=MACHINE_META[machineId];if(!m)return defaultState();
   try{return migrateLegacySRS({...defaultState(),...JSON.parse(localStorage.getItem(m.key)||'{}')})}catch{return defaultState()}
 }
-function mentorTheorySummary(){
-  const modules=[];const categories={};let totalAttempts=0,totalCorrect=0,totalSeen=0,totalQuestions=0;
-  for(const [mid,m] of Object.entries(MACHINE_META)){
-    const st=mentorStoredState(mid);let attempts=0,correct=0,seen=0;
-    m.questions.forEach(q=>{const s=st.stats?.[q.id];totalQuestions++;if(!s?.attempts)return;seen++;attempts+=Number(s.attempts)||0;correct+=Number(s.correct)||0;const cat=mentorCategory(q.q);const c=categories[cat]||(categories[cat]={attempts:0,correct:0,wrong:0,questions:0,machines:new Set()});c.attempts+=Number(s.attempts)||0;c.correct+=Number(s.correct)||0;c.wrong+=Number(s.wrong)||0;c.questions++;c.machines.add(mid)});
-    totalAttempts+=attempts;totalCorrect+=correct;totalSeen+=seen;
-    modules.push({id:mid,name:m.name,attempts,correct,seen,total:m.questions.length,pct:attempts?Math.round(correct/attempts*100):0});
-  }
+function mentorTheorySummary(machineId=activeMachine){
+  const m=MACHINE_META[machineId]||MACHINE_META[activeMachine];
+  const st=mentorStoredState(machineId);const categories={};let totalAttempts=0,totalCorrect=0,totalSeen=0;
+  m.questions.forEach(q=>{
+    const qs=st.stats?.[q.id];if(!qs?.attempts)return;
+    totalSeen++;totalAttempts+=Number(qs.attempts)||0;totalCorrect+=Number(qs.correct)||0;
+    const cat=mentorCategory(q.q);const c=categories[cat]||(categories[cat]={attempts:0,correct:0,wrong:0,questions:0});
+    c.attempts+=Number(qs.attempts)||0;c.correct+=Number(qs.correct)||0;c.wrong+=Number(qs.wrong)||0;c.questions++;
+  });
   const cats=Object.entries(categories).map(([name,x])=>({name,...x,pct:x.attempts?Math.round(x.correct/x.attempts*100):0})).sort((a,b)=>a.pct-b.pct||b.wrong-a.wrong);
-  return {modules,cats,totalAttempts,totalCorrect,totalSeen,totalQuestions,pct:totalAttempts?Math.round(totalCorrect/totalAttempts*100):0};
+  const module={id:machineId,name:m.name,attempts:totalAttempts,correct:totalCorrect,seen:totalSeen,total:m.questions.length,pct:totalAttempts?Math.round(totalCorrect/totalAttempts*100):0};
+  return {machineId,module,modules:[module],cats,totalAttempts,totalCorrect,totalSeen,totalQuestions:m.questions.length,pct:module.pct};
 }
-function mentorAcademySummary(){
-  let oralAttempts=0,oralWrong=0,oralKnown=0;
-  for(const mid of ['excavators','backhoes']){
-    const st=mentorStoredState(mid);(ORAL_TASKS[mid]||[]).forEach(t=>{const s=st.stats?.[t.id];oralAttempts+=Number(s?.attempts)||0;oralWrong+=Number(s?.wrong)||0;if(s?.oralMastery==='known')oralKnown++})
-  }
-  const tech=Object.values(academyData?.tech||{}),techKnown=tech.filter(x=>x.status==='known').length,techRepeat=tech.filter(x=>x.status==='repeat').length;
-  const games=academyData?.games||{played:0,correct:0};
-  const exams=academyData?.history||[];
+function mentorAcademySummary(machineId=activeMachine){
+  if(!['excavators','backhoes'].includes(machineId))return {oralAttempts:0,oralWrong:0,oralKnown:0,techKnown:0,techRepeat:0,gamesPlayed:0,gamesPct:0,examCount:0,examPct:0};
+  const st=mentorStoredState(machineId);let oralAttempts=0,oralWrong=0,oralKnown=0;
+  (ORAL_TASKS[machineId]||[]).forEach(t=>{const x=st.stats?.[t.id];oralAttempts+=Number(x?.attempts)||0;oralWrong+=Number(x?.wrong)||0;if(x?.oralMastery==='known')oralKnown++});
+  const data=(typeof loadAcademyDataForMachine==='function'?loadAcademyDataForMachine(machineId):academyData)||{};
+  const tech=Object.values(data.tech||{}),techKnown=tech.filter(x=>x.status==='known').length,techRepeat=tech.filter(x=>x.status==='repeat').length;
+  const games=data.games||{played:0,correct:0};const exams=data.history||[];
   return {oralAttempts,oralWrong,oralKnown,techKnown,techRepeat,gamesPlayed:Number(games.played)||0,gamesPct:games.played?Math.round(games.correct/games.played*100):0,examCount:exams.length,examPct:exams.length?Math.round(exams.reduce((a,x)=>a+(Number(x.score)||0),0)/exams.length):0};
 }
 function mentorReadiness(theory,academy){
@@ -286,7 +287,7 @@ function ensureUnifiedMentorUI(){
   const dash=document.querySelector('.dashboard-actions');
   if(dash&&!document.getElementById('unifiedMentorBtn'))dash.insertAdjacentHTML('afterbegin','<button id="unifiedMentorBtn" class="mentor-primary" onclick="showUnifiedMentor()">🧠 Mentor</button>');
   if(!document.getElementById('mentorPanel')){
-    const el=document.createElement('div');el.id='mentorPanel';el.className='card hidden mentor-shell';el.innerHTML='<div class="toolbar"><div><h1>🧠 Mentor</h1><div class="small">Jeden plan dla teorii, obsługi, technologii i gier.</div></div><button class="secondary" onclick="backToMenu()">Zamknij</button></div><div id="mentorBody"></div>';
+    const el=document.createElement('div');el.id='mentorPanel';el.className='card hidden mentor-shell';el.innerHTML='<div class="toolbar"><div><h1>🧠 Mentor</h1><div class="small">Plan wyłącznie dla aktualnie wybranego modułu.</div></div><button class="secondary" onclick="backToMenu()">Zamknij</button></div><div id="mentorBody"></div>';
     document.querySelector('.app').insertBefore(el,document.querySelector('.footer'));
   }
 }
@@ -298,15 +299,15 @@ function showUnifiedMentor(){
   <div class="mentor-overview"><div><b>${theory.pct}%</b><span>teoria ABC</span></div><div><b>${theory.totalSeen}/${theory.totalQuestions}</b><span>pytań poznanych</span></div><div><b>${academy.oralKnown}</b><span>obsługa: umiem</span></div><div><b>${academy.techKnown}</b><span>technologia: umiem</span></div><div><b>${academy.gamesPct}%</b><span>gry</span></div><div><b>${academy.examPct}%</b><span>egzaminy 1:1</span></div></div>
   <div class="mentor-card"><h2>Dzisiejszy plan</h2>${plan.length?plan.map((x,i)=>`<div class="mentor-action"><span>${x.icon}</span><div><b>${i+1}. ${escapeHtml(x.title)}</b><small>${escapeHtml(x.detail)}</small></div><button onclick="${x.action}">${x.label}</button></div>`).join(''):'<p>Brak danych. Rozwiąż pierwszą sesję, aby Mentor przestał wróżyć z fusów.</p>'}</div>
   <div class="mentor-card"><h2>Najsłabsze działy teorii</h2>${weak.length?weak.map(x=>`<div class="mentor-skill"><div><b>${escapeHtml(x.name)}</b><span>${x.questions} pytań • ${x.wrong} błędów</span></div><strong>${x.pct}%</strong><div class="mini-progress"><div style="width:${x.pct}%"></div></div></div>`).join(''):'<p class="small">Za mało odpowiedzi do analizy działów.</p>'}</div>
-  <div class="mentor-card"><h2>Moduły ABC</h2>${theory.modules.map(x=>`<div class="history-item"><span>${escapeHtml(x.name)} • ${x.seen}/${x.total}</span><b>${x.attempts?x.pct+'%':'brak danych'}</b></div>`).join('')}</div>`;
+  <div class="mentor-card"><h2>Aktualny moduł</h2><div class="history-item"><span>${escapeHtml(theory.module.name)} • ${theory.module.seen}/${theory.module.total}</span><b>${theory.module.attempts?theory.module.pct+'%':'brak danych'}</b></div></div>`;
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function mentorStartTheory(category){
-  const target=mentorTheorySummary().modules.filter(x=>x.attempts).sort((a,b)=>a.pct-b.pct)[0]?.id||activeMachine;setMachine(target);backToMenu();document.getElementById('source').value='weaknesses';document.getElementById('count').value=Math.min(10,QUESTIONS.length);startNew();
+  const list=mentorQuestionsForCategory(activeMachine,category);backToMenu();document.getElementById('mode').value='learn';document.getElementById('count').value=Math.min(10,Math.max(1,list.length));if(list.length)startNew(list.slice(0,10));else{document.getElementById('source').value='weaknesses';startNew()}
 }
-function mentorStartOral(){if(!academySupported())setMachine('excavators');backToMenu();showOralSetup()}
-function mentorStartTechnology(){if(!academySupported())setMachine('excavators');showAcademy();showTechnologyModule()}
-function mentorStartGames(){if(!academySupported())setMachine('excavators');showAcademy();showAcademyGames()}
+function mentorStartOral(){if(!academySupported()){alert('Trening obsługowy nie jest dostępny dla tego modułu.');return}backToMenu();showOralSetup()}
+function mentorStartTechnology(){if(!academySupported()){alert('Technologia nie jest dostępna dla tego modułu.');return}showAcademy();showTechnologyModule()}
+function mentorStartGames(){if(!academySupported()){alert('Gry proceduralne nie są dostępne dla tego modułu.');return}showAcademy();showAcademyGames()}
 
 // Mentor Akademii korzysta od teraz z tego samego silnika.
 window.showAcademyMentor=function(){showUnifiedMentor()};
@@ -348,14 +349,14 @@ window.explanationHTML=function(q,selectedIndex=null,expanded=false){
 setTimeout(ensureUnifiedMentorUI,0);
 
 // === 6.1.1: aktywny Mentor, historia gotowości i trening jednym kliknięciem ===
-const MENTOR_HISTORY_KEY='udt_mentor_readiness_history_v1';
+function mentorHistoryKey(machineId=activeMachine){return `udt_mentor_readiness_history_v2_${machineId}`} 
 function mentorDayKey(date=new Date()){return date.toISOString().slice(0,10)}
 function mentorReadinessHistory(current){
-  let history=[];try{history=JSON.parse(localStorage.getItem(MENTOR_HISTORY_KEY)||'[]')}catch{}
+  let history=[];try{history=JSON.parse(localStorage.getItem(mentorHistoryKey())||'[]')}catch{}
   if(!Array.isArray(history))history=[];
   const day=mentorDayKey();const last=history[history.length-1];
   if(last?.day===day){last.value=current}else history.push({day,value:current});
-  history=history.slice(-90);localStorage.setItem(MENTOR_HISTORY_KEY,JSON.stringify(history));
+  history=history.slice(-90);localStorage.setItem(mentorHistoryKey(),JSON.stringify(history));
   const previous=[...history].reverse().find(x=>x.day!==day);
   return {history,previous:previous?.value??null,delta:previous==null?null:current-previous.value};
 }
@@ -371,9 +372,10 @@ function mentorQuestionsForCategory(machineId,category){
   });
 }
 window.mentorStartTheory=function(category){
-  const candidates=Object.keys(MACHINE_META).map(mid=>({mid,list:mentorQuestionsForCategory(mid,category)})).filter(x=>x.list.length).sort((a,b)=>b.list.length-a.list.length);
-  const chosen=candidates[0];if(!chosen){backToMenu();document.getElementById('source').value='weaknesses';startNew();return}
-  setMachine(chosen.mid);backToMenu();document.getElementById('mode').value='learn';document.getElementById('count').value=Math.min(10,chosen.list.length);startNew(chosen.list.slice(0,10));
+  const list=mentorQuestionsForCategory(activeMachine,category);
+  backToMenu();document.getElementById('mode').value='learn';
+  if(!list.length){document.getElementById('source').value='weaknesses';document.getElementById('count').value=Math.min(10,QUESTIONS.length);startNew();return}
+  document.getElementById('count').value=Math.min(10,list.length);startNew(list.slice(0,10));
 }
 function mentorPrimaryAction(theory,academy){
   const weak=theory.cats.filter(x=>x.attempts>=2).sort((a,b)=>a.pct-b.pct||b.wrong-a.wrong)[0];
@@ -450,13 +452,13 @@ setTimeout(()=>{ensureUnifiedMentorUI();updateMentorDashboard()},0);
 
 
 // === 6.2.0: ekran Start jako centrum dowodzenia ===
-const HOME_PLAN_KEY='udt_home_plan_v620';
+function homePlanKey(machineId=activeMachine){return `udt_home_plan_v621_${machineId}`} 
 function homeDayKey(){return new Date().toISOString().slice(0,10)}
 function homePlanState(){
-  let x={};try{x=JSON.parse(localStorage.getItem(HOME_PLAN_KEY)||'{}')}catch{}
+  let x={};try{x=JSON.parse(localStorage.getItem(homePlanKey())||'{}')}catch{}
   const day=homeDayKey();if(x.day!==day)x={day,theory:false,oral:false,tech:false,games:0};return x;
 }
-function saveHomePlan(x){localStorage.setItem(HOME_PLAN_KEY,JSON.stringify(x));renderHomeDashboard()}
+function saveHomePlan(x){localStorage.setItem(homePlanKey(),JSON.stringify(x));renderHomeDashboard()}
 function markHomePlan(kind,amount=1){const x=homePlanState();if(kind==='games')x.games=Math.max(0,(x.games||0)+amount);else x[kind]=true;saveHomePlan(x)}
 function homePlanItems(theory,academy){
   const weak=theory.cats.filter(x=>x.attempts>=2).sort((a,b)=>a.pct-b.pct||b.wrong-a.wrong)[0];

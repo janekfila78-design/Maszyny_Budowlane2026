@@ -1,9 +1,17 @@
-const ACADEMY_VERSION='6.1.0';
-const ACADEMY_KEY='udt_academy_v1';
-let academyData=loadAcademyData();
+const ACADEMY_VERSION='6.2.1';
+const LEGACY_ACADEMY_KEY='udt_academy_v1';
+function academyStorageKey(machineId=activeMachine){return `udt_academy_v2_${machineId}`}
+function emptyAcademyData(){return {xp:0,games:{played:0,correct:0},tech:{},notes:{},favorites:[],history:[],days:{}}}
+function loadAcademyDataForMachine(machineId=activeMachine){
+  try{const own=localStorage.getItem(academyStorageKey(machineId));if(own)return Object.assign(emptyAcademyData(),JSON.parse(own));
+    if(['excavators','backhoes'].includes(machineId)){const legacy=localStorage.getItem(LEGACY_ACADEMY_KEY);if(legacy&&!localStorage.getItem('udt_academy_v2_migrated')){localStorage.setItem('udt_academy_v2_migrated',machineId);const data=Object.assign(emptyAcademyData(),JSON.parse(legacy));localStorage.setItem(academyStorageKey(machineId),JSON.stringify(data));return data}}
+  }catch(_){}return emptyAcademyData();
+}
+let academyData=loadAcademyDataForMachine();
 let academyGame=null,academyTechIndex=0,academyExam=null;
-function loadAcademyData(){try{return Object.assign({xp:0,games:{played:0,correct:0},tech:{},notes:{},favorites:[],history:[],days:{}},JSON.parse(localStorage.getItem(ACADEMY_KEY)||'{}'))}catch(_){return {xp:0,games:{played:0,correct:0},tech:{},notes:{},favorites:[],history:[],days:{}}}}
-function saveAcademy(){academyData.days[new Date().toISOString().slice(0,10)]=1;localStorage.setItem(ACADEMY_KEY,JSON.stringify(academyData))}
+function loadAcademyData(){return loadAcademyDataForMachine(activeMachine)}
+function saveAcademy(){academyData.days[new Date().toISOString().slice(0,10)]=1;localStorage.setItem(academyStorageKey(activeMachine),JSON.stringify(academyData))}
+const _setMachineAcademy=window.setMachine;window.setMachine=function(id){const ok=_setMachineAcademy(id);if(ok)academyData=loadAcademyDataForMachine(id);return ok}
 function academySupported(){return activeMachine==='excavators'||activeMachine==='backhoes'}
 function academyTechTasks(){return TECHNOLOGY_TASKS[activeMachine]||[]}
 function academyAllTasks(){return [...oralTasks().map(t=>({...t,kind:'oral',technical:t.prompt,human:t.answer,errors:[t.trap],criteria:t.steps})),...academyTechTasks().map(t=>({...t,kind:'tech',prompt:t.technical,answer:t.human,trap:t.errors[0]}))]}
