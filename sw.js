@@ -1,14 +1,14 @@
 const VERSION='udt-trainer-6.2.0-hotfix-2';
 const CACHE=VERSION;
 const ASSETS=[
-  './','./index.html','./reset.html','./style.css?v=6.2.0-hotfix2',
-  './app.js?v=6.2.0-hotfix2','./enhancements.js?v=6.2.0-hotfix2','./udt4.js?v=6.2.0-hotfix2',
+  './','./index.html','./reset.html','./style.css?v=6.2.0-stable1',
+  './app.js?v=6.2.0-stable1','./enhancements.js?v=6.2.0-stable1','./udt4.js?v=6.2.0-stable1',
   './manifest.webmanifest','./icon-192.png','./icon-512.png',
   './crane_questions_1.js','./crane_questions_2.js','./crane_questions_3.js','./crane_questions_4.js',
   './excavator_questions_1.js','./backhoe_questions_1.js','./loader_questions_1.js',
-  './questions_init.js?v=6.2.0-hotfix2','./oral_tasks.js?v=6.2.0-hotfix2',
-  './technology_tasks.js?v=6.2.0-hotfix2','./oral_trainer.js?v=6.2.0-hotfix2',
-  './oral_ai.js?v=6.2.0-hotfix2','./academy.js?v=6.2.0-hotfix2'
+  './questions_init.js?v=6.2.0-stable1','./oral_tasks.js?v=6.2.0-stable1',
+  './technology_tasks.js?v=6.2.0-stable1','./oral_trainer.js?v=6.2.0-stable1',
+  './oral_ai.js?v=6.2.0-stable1','./academy.js?v=6.2.0-stable1'
 ];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(async cache=>{

@@ -1,6 +1,6 @@
 
 /* UDT Trainer 5.6.0 — PWA, offline, aktualizacje, chmura, statystyki, wyjaśnienia */
-const UDT_VERSION='6.1.1';
+const UDT_VERSION='6.2.0';
 let deferredInstallPrompt=null;
 let newWorkerWaiting=null;
 

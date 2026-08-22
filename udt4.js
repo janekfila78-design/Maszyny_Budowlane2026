@@ -1,5 +1,5 @@
-/* UDT Trainer 5.6.0 — coach dashboard, SRS, readiness, activity calendar, settings */
-const UDT4_VERSION='5.6.0';
+/* UDT Trainer 6.2.0 — legacy helpers without a second dashboard */
+const UDT4_VERSION='6.2.0';
 
 function ensureProState(){
   state.dailyGoal=Number(state.dailyGoal)||25;
@@ -43,31 +43,47 @@ function averageAnswerTime(){ensureProState();const vals=Object.values(state.ans
 
 function ensureUdt4UI(){
   ensureProState();
-  const title=document.getElementById('appTitle');if(title)title.textContent='UDT Trainer 5.6.0';
-  document.title='UDT Trainer 5.6.0 — trener operatora';
-  const dash=document.getElementById('dashboard');
-  if(dash&&!document.getElementById('coachHero')){
-    dash.insertAdjacentHTML('afterbegin',`<section id="coachHero" class="coach-hero"><div><span class="eyebrow">TWÓJ TRENER</span><h2 id="coachGreeting">Gotowy do nauki?</h2><p id="coachPlan" class="small"></p><div class="row coach-buttons"><button onclick="startCoachSession()">▶ Rozpocznij plan dnia</button><button class="secondary" onclick="startQuickReview()">🔁 Szybka powtórka</button></div></div><div class="readiness"><span class="small">Szansa zdania*</span><strong id="readinessValue">0%</strong><span id="readinessLabel" class="small">Brak danych</span></div></section>
-    <section class="coach-strip"><div><span class="small">Dzisiaj</span><b id="todayProgress">0/25</b></div><div><span class="small">SRS do powtórki</span><b id="dueCount">0</b></div><div><span class="small">Śr. czas odpowiedzi</span><b id="avgTime">—</b></div><div><span class="small">Szac. dni do bazy</span><b id="daysLeft">—</b></div></section>
-    <section class="activity-card"><div class="toolbar"><div><b>📅 Aktywność — 30 dni</b><div class="small">Regularność robi większą robotę niż jednorazowy maraton.</div></div></div><div id="heatmapHost"></div></section>`);
-  }
+
+  // 6.2.0: tylko jeden ekran Start. Starszy coachHero z 5.6.0 przykrywał
+  // Centrum Dowodzenia po zakończeniu inicjalizacji.
+  ['coachHero'].forEach(id=>document.getElementById(id)?.remove());
+  document.querySelectorAll('#dashboard > .coach-strip, #dashboard > .activity-card').forEach(el=>el.remove());
+
+  const version=(typeof UDT_VERSION!=='undefined'?UDT_VERSION:UDT4_VERSION);
+  const title=document.getElementById('appTitle');
+  if(title)title.textContent=`UDT Trainer ${version}`;
+  document.title=`UDT Trainer ${version} — trener operatora`;
+
   const actions=document.querySelector('.dashboard-actions');
   if(actions){
-    Array.from(actions.children).forEach(el=>{const text=el.textContent||'';if(/Diagnostyka|Eksport|Import|Synchronizacja/.test(text))el.classList.add('pro-hidden-action')});
-    if(!document.getElementById('settingsDashBtn'))actions.insertAdjacentHTML('beforeend','<button id="settingsDashBtn" class="secondary" onclick="showSettings()">⚙️ Ustawienia</button>');
+    Array.from(actions.children).forEach(el=>{
+      const text=el.textContent||'';
+      if(/Diagnostyka|Eksport|Import|Synchronizacja/.test(text))el.classList.add('pro-hidden-action');
+    });
+    if(!document.getElementById('settingsDashBtn')){
+      actions.insertAdjacentHTML('beforeend','<button id="settingsDashBtn" class="secondary" onclick="showSettings()">⚙️ Ustawienia</button>');
+    }
   }
+
   if(!document.getElementById('settingsPanel')){
-    const app=document.querySelector('.app'),footer=document.querySelector('.footer'),p=document.createElement('div');p.id='settingsPanel';p.className='card hidden';p.innerHTML=`<div class="toolbar"><div><h1>⚙️ Ustawienia</h1><div class="small">Kopie zapasowe, synchronizacja i narzędzia techniczne siedzą tutaj, a nie na środku dashboardu.</div></div><button class="secondary" onclick="backToMenu()">Zamknij</button></div>
+    const app=document.querySelector('.app'),footer=document.querySelector('.footer'),p=document.createElement('div');
+    p.id='settingsPanel';p.className='card hidden';
+    p.innerHTML=`<div class="toolbar"><div><h1>⚙️ Ustawienia</h1><div class="small">Kopie zapasowe, synchronizacja i narzędzia techniczne.</div></div><button class="secondary" onclick="backToMenu()">Zamknij</button></div>
       <div class="settings-grid"><div class="settings-box"><h2>🎯 Nauka</h2><label class="field"><span>Dzienny cel pytań</span><input id="dailyGoalInput" type="number" min="5" max="200" step="5"></label><label class="check"><input id="autoExplainInput" type="checkbox"> Automatycznie pokaż wyjaśnienie po błędzie</label><button onclick="saveProSettings()">Zapisz ustawienia</button></div>
       <div class="settings-box"><h2>💾 Kopia danych</h2><p class="small">Eksport zapisuje postęp bieżącego modułu. Import odtwarza go z pliku.</p><div class="row"><button class="secondary" onclick="exportData()">📤 Eksport</button><button class="secondary" onclick="document.getElementById('importFile').click()">📥 Import</button></div></div>
       <div class="settings-box"><h2>☁️ Synchronizacja</h2><p class="small">Opcjonalna synchronizacja przez prywatny GitHub Gist.</p><button class="secondary" onclick="showSyncPanel()">Otwórz synchronizację</button></div>
-      <div class="settings-box"><h2>🛠 Narzędzia</h2><div class="row"><button class="secondary" onclick="showDiagnostics()">Diagnostyka</button><button class="danger" onclick="resetProgress()">Wyzeruj postęp</button></div></div></div>`;app.insertBefore(p,footer);
+      <div class="settings-box"><h2>🛠 Narzędzia</h2><div class="row"><button class="secondary" onclick="showDiagnostics()">Diagnostyka</button><button class="danger" onclick="resetProgress()">Wyzeruj postęp</button></div></div></div>`;
+    app.insertBefore(p,footer);
   }
+
   if(!document.getElementById('bottomNav')){
-    document.body.insertAdjacentHTML('beforeend',`<nav id="bottomNav" class="bottom-nav"><button onclick="backToMenu()"><span>🏠</span>Start</button><button onclick="showQuestionBrowser()"><span>🔎</span>Baza</button><button class="nav-main" onclick="startCoachSession()"><span>▶</span>Nauka</button><button onclick="showStats()"><span>📊</span>Postęp</button><button onclick="showSettings()"><span>⚙️</span>Więcej</button></nav>`);
+    document.body.insertAdjacentHTML('beforeend',`<nav id="bottomNav" class="bottom-nav"><button onclick="backToMenu()"><span>🏠</span>Start</button><button onclick="showQuestionBrowser()"><span>🔎</span>Baza</button><button class="nav-main" onclick="mentorContinueLearning()"><span>▶</span>Nauka</button><button onclick="showStats()"><span>📊</span>Postęp</button><button onclick="showSettings()"><span>⚙️</span>Więcej</button></nav>`);
   }
-  const footer=document.querySelector('.footer');if(footer)footer.textContent='UDT Trainer 5.6.0 — trener operatora • PWA offline • inteligentne powtórki • dane lokalne';
-  const diag=document.querySelector('#diagnostics .version-pill');if(diag)diag.textContent='Wersja 5.6.0';
+
+  const footer=document.querySelector('.footer');
+  if(footer)footer.textContent=`UDT Trainer ${version} — trener operatora • PWA offline • inteligentne powtórki • dane lokalne`;
+  const diag=document.querySelector('#diagnostics .version-pill');
+  if(diag)diag.textContent=`Wersja ${version}`;
 }
 function weaknessRowsHTML(){
   const list=weaknessQuestions().slice(0,5);
@@ -78,11 +94,9 @@ function weaknessRowsHTML(){
   }).join('')
 }
 function refreshCoach(){
-  if(!document.getElementById('coachHero'))return;ensureProState();const r=readinessScore(),goal=state.dailyGoal||25,done=todayAnswered();
-  document.getElementById('readinessValue').textContent=r+'%';document.getElementById('readinessLabel').textContent=readinessLabel(r);document.querySelector('.readiness').style.background=`conic-gradient(var(--accent) 0 ${r}%,var(--bg2) ${r}% 100%)`;
-  document.getElementById('coachGreeting').textContent=r>=80?'Jesteś blisko trybu egzaminacyjnego.':'Budujemy pewność krok po kroku.';
-  document.getElementById('coachPlan').textContent=coachText();document.getElementById('todayProgress').textContent=`${Math.min(done,goal)}/${goal}`;document.getElementById('dueCount').textContent=dueQuestions().length;
-  const avg=averageAnswerTime();document.getElementById('avgTime').textContent=avg?avg+' s':'—';const d=estimatedDays();document.getElementById('daysLeft').textContent=d?d:'✓';document.getElementById('heatmapHost').innerHTML=heatmapHTML();
+  // Centrum Dowodzenia 6.2.0 renderuje Mentor w enhancements.js.
+  // Funkcja zostaje jako kompatybilny no-op dla starszych wywołań.
+  if(typeof renderHomeDashboard==='function')renderHomeDashboard();
 }
 function showSettings(){saveCurrentNote?.();hideMainPanels();document.getElementById('settingsPanel').classList.remove('hidden');ensureProState();document.getElementById('dailyGoalInput').value=state.dailyGoal||25;document.getElementById('autoExplainInput').checked=!!state.settings.autoExplain;window.scrollTo({top:0,behavior:'smooth'})}
 function saveProSettings(){ensureProState();state.dailyGoal=Math.max(5,Math.min(200,Number(document.getElementById('dailyGoalInput').value)||25));state.settings.autoExplain=!!document.getElementById('autoExplainInput').checked;saveState();refreshCoach();alert('Ustawienia zapisane.')}

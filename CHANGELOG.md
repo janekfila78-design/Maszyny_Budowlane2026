@@ -1,3 +1,15 @@
+# Changelog
+
+## 6.2.0 Stable 1
+
+### Naprawiono
+- usunięto konflikt dwóch ekranów Start;
+- stary `coachHero` z wersji 5.6.0 nie jest już wstrzykiwany do Dashboardu;
+- Centrum Dowodzenia pozostaje widoczne po zakończeniu inicjalizacji;
+- ujednolicono numer wersji w nagłówku, stopce i diagnostyce;
+- środkowy przycisk dolnej nawigacji korzysta z inteligentnego `Kontynuuj naukę`;
+- odświeżono identyfikator cache PWA.
+
 ## 6.2.0 Hotfix 2
 
 - dodano `reset.html` do jednorazowego usunięcia starego Service Workera i cache,
