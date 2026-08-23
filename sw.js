@@ -1,14 +1,14 @@
-const VERSION='udt-trainer-6.3.4-tech-plan-fix';
+const VERSION='udt-trainer-6.3.5-tech-plan-diagnostic';
 const CACHE=VERSION;
 const ASSETS=[
-  './','./index.html','./reset.html','./style.css?v=6.3.4-tech-plan-fix',
-  './app.js?v=6.3.4-tech-plan-fix','./enhancements.js?v=6.3.4-tech-plan-fix','./udt4.js?v=6.3.4-tech-plan-fix',
+  './','./index.html','./reset.html','./style.css?v=6.3.5-tech-plan-diagnostic',
+  './app.js?v=6.3.5-tech-plan-diagnostic','./enhancements.js?v=6.3.5-tech-plan-diagnostic','./udt4.js?v=6.3.5-tech-plan-diagnostic',
   './manifest.webmanifest','./icon-192.png','./icon-512.png',
   './crane_questions_1.js','./crane_questions_2.js','./crane_questions_3.js','./crane_questions_4.js',
   './excavator_questions_1.js','./backhoe_questions_1.js','./loader_questions_1.js',
-  './questions_init.js?v=6.3.4-tech-plan-fix','./oral_tasks.js?v=6.3.4-tech-plan-fix',
-  './technology_tasks.js?v=6.3.4-tech-plan-fix','./oral_trainer.js?v=6.3.4-tech-plan-fix',
-  './oral_ai.js?v=6.3.4-tech-plan-fix','./academy.js?v=6.3.4-tech-plan-fix'
+  './questions_init.js?v=6.3.5-tech-plan-diagnostic','./oral_tasks.js?v=6.3.5-tech-plan-diagnostic',
+  './technology_tasks.js?v=6.3.5-tech-plan-diagnostic','./oral_trainer.js?v=6.3.5-tech-plan-diagnostic',
+  './oral_ai.js?v=6.3.5-tech-plan-diagnostic','./academy.js?v=6.3.5-tech-plan-diagnostic'
 ];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(async cache=>{

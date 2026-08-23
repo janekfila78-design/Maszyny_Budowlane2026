@@ -50,16 +50,22 @@ function saveTechNote(){const t=academyTechTasks()[academyTechIndex],v=document.
 function toggleTechFavorite(){const id=academyTechTasks()[academyTechIndex].id,i=academyData.favorites.indexOf(id);if(i>=0)academyData.favorites.splice(i,1);else academyData.favorites.push(id);saveAcademy();renderTechnologyTask()}
 function setTechStatus(status){
   const planMachine=window.__homePlanTechnologyMachine||null;
+  const currentMachine=activeMachine;
   const s=techStat(academyTechTasks()[academyTechIndex]);
   s.status=status;
   s.attempts++;
   academyData.xp+=status==='known'?12:status==='repeat'?2:5;
   saveAcademy();
+  let diagnostic=null;
   if(planMachine&&typeof window.completeHomePlanTechnology==='function'){
-    window.completeHomePlanTechnology(planMachine);
+    diagnostic=window.completeHomePlanTechnology(planMachine);
     window.__homePlanTechnologyMachine=null;
+  }else{
+    diagnostic={version:'6.3.5-diagnostic',activeMachine:currentMachine,requestedMachine:planMachine,source:window.__homePlanTechnologyStart||null,key:null,before:null,after:null,verified:false,error:planMachine?'Brak completeHomePlanTechnology':'Brak znacznika uruchomienia z planu dnia'};
+    window.__techPlanDiagnosticLast=diagnostic;
   }
   renderTechnologyTask();
+  if(typeof window.showTechPlanDiagnostic==='function')setTimeout(()=>window.showTechPlanDiagnostic(diagnostic),50);
 }
 function showAcademyGames(){academyRoot().innerHTML=academyNav('🎮 Gry proceduralne')+`<div class="game-menu">${academyModuleCard('🔢','Ułóż kolejność klikaniem','Klikasz kafelki, a one same wskakują jako krok 1, 2, 3…',"startSequenceGame()")}${academyModuleCard('🧩','Brakujący krok','Wybierz element wycięty z procedury',"startMissingGame()")}${academyModuleCard('🚫','Znajdź błąd','Jedna czynność jest niebezpieczna albo nielogiczna',"startErrorGame()")}${academyModuleCard('⚡','Sprint','10 szybkich rund z różnych procedur',"startSprintGame()")}</div>`}
 function pickGameTask(min=4){const a=academyAllTasks().filter(t=>(t.steps||[]).length>=min);return a[Math.floor(Math.random()*a.length)]}

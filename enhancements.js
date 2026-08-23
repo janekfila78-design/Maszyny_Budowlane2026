@@ -1,6 +1,6 @@
 
 /* UDT Trainer 5.6.0 — PWA, offline, aktualizacje, chmura, statystyki, wyjaśnienia */
-const UDT_VERSION='6.3.4';
+const UDT_VERSION='6.3.5';
 let deferredInstallPrompt=null;
 let newWorkerWaiting=null;
 
@@ -316,7 +316,12 @@ function mentorStartHomeTheory(){
   if(list.length)startNew(list.slice(0,target));else showSessionSetup();
 }
 function mentorStartOral(){if(!academySupported()){alert('Trening obsługowy nie jest dostępny dla tego modułu.');return}backToMenu();showOralSetup()}
-function mentorStartTechnology(){if(!academySupported()){alert('Technologia nie jest dostępna dla tego modułu.');return}window.__homePlanTechnologyMachine=activeMachine;showAcademy();showTechnologyModule()}
+function mentorStartTechnology(){
+  if(!academySupported()){alert('Technologia nie jest dostępna dla tego modułu.');return}
+  window.__homePlanTechnologyMachine=activeMachine;
+  window.__homePlanTechnologyStart={machine:activeMachine,key:homePlanKey(activeMachine),day:homeDayKey(),startedAt:new Date().toISOString()};
+  showAcademy();showTechnologyModule();
+}
 function mentorStartGames(){if(!academySupported()){alert('Gry proceduralne nie są dostępne dla tego modułu.');return}showAcademy();showAcademyGames()}
 
 // Mentor Akademii korzysta od teraz z tego samego silnika.
@@ -543,7 +548,45 @@ window.finish=function(completed=false){const before=(state.history||[]).length;
 const _rateOral620=window.rateOral;
 window.rateOral=function(grade){_rateOral620(grade);markHomePlan('oral')};
 window.completeHomePlanTechnology=function(machineId){
-  markHomePlan('tech',1,machineId||activeMachine);
+  const requestedMachine=machineId||activeMachine;
+  const key=homePlanKey(requestedMachine);
+  const beforeRaw=localStorage.getItem(key);
+  const before=homePlanState(requestedMachine);
+  let error=null;
+  try{markHomePlan('tech',1,requestedMachine)}catch(e){error=String(e&&e.stack||e)}
+  const afterRaw=localStorage.getItem(key);
+  const after=homePlanState(requestedMachine);
+  const diagnostic={
+    version:'6.3.5-diagnostic',
+    activeMachine,
+    requestedMachine,
+    source:window.__homePlanTechnologyStart||null,
+    key,
+    beforeRaw,
+    before,
+    afterRaw,
+    after,
+    verified:after.tech===true,
+    error
+  };
+  window.__techPlanDiagnosticLast=diagnostic;
+  return diagnostic;
+};
+window.showTechPlanDiagnostic=function(diagnostic){
+  const d=diagnostic||window.__techPlanDiagnosticLast||{};
+  const text=[
+    'DIAGNOSTYKA PLANU TECHNOLOGII 6.3.5',
+    `activeMachine: ${d.activeMachine}`,
+    `requestedMachine: ${d.requestedMachine}`,
+    `sourceMachine: ${d.source?.machine||'brak'}`,
+    `key: ${d.key||'brak'}`,
+    `before.tech: ${d.before?.tech}`,
+    `after.tech: ${d.after?.tech}`,
+    `verified: ${d.verified}`,
+    `error: ${d.error||'brak'}`,
+    `afterRaw: ${d.afterRaw||'brak'}`
+  ].join('\n');
+  alert(text);
 };
 const _recordGame620=window.recordGame;
 window.recordGame=function(ok,xp){_recordGame620(ok,xp);markHomePlan('games',1)};
