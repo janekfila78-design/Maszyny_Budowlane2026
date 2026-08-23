@@ -1,6 +1,6 @@
 
 /* UDT Trainer 5.6.0 — PWA, offline, aktualizacje, chmura, statystyki, wyjaśnienia */
-const UDT_VERSION='6.3.5';
+const UDT_VERSION='6.3.7';
 let deferredInstallPrompt=null;
 let newWorkerWaiting=null;
 
@@ -42,7 +42,7 @@ async function installPWA(){if(!deferredInstallPrompt){alert('Jeśli przycisk in
 async function registerPWA(){
  if(!('serviceWorker' in navigator)||location.protocol==='file:')return;
  try{
-   const reg=await navigator.serviceWorker.register('./sw.js?v=6.3.0-smart-explanations',{updateViaCache:'none'});
+   const reg=await navigator.serviceWorker.register('./sw.js?v=6.3.6-direct-tech-plan-fix',{updateViaCache:'none'});
    if(reg.waiting)showUpdate(reg.waiting);
    reg.addEventListener('updatefound',()=>{const w=reg.installing;if(!w)return;w.addEventListener('statechange',()=>{if(w.state==='installed'&&navigator.serviceWorker.controller)showUpdate(w)})});
    setInterval(()=>reg.update().catch(()=>{}),15*60*1000);
@@ -307,19 +307,20 @@ function mentorStartTheory(category,count=8){
 }
 function mentorStartHomeTheory(){
   const target=8;
+  // Zapamiętujemy, że ta konkretna sesja pochodzi z pierwszego kafelka Planu dnia.
+  // sessionStorage przetrwa przejścia między ekranami i nie pomyli zwykłej sesji z planem.
+  sessionStorage.setItem('udt_home_theory_session',JSON.stringify({machineId:activeMachine,target,startedAt:Date.now()}));
   const theory=mentorTheorySummary();
   const weak=theory.cats.filter(x=>x.attempts>=2).sort((a,b)=>a.pct-b.pct||b.wrong-a.wrong)[0];
   if(weak){mentorStartTheory(weak.name,target);return}
   backToMenu();document.getElementById('mode').value='learn';
   const list=smartSrsPool(target);
   document.getElementById('count').value=Math.min(target,Math.max(1,list.length));
-  if(list.length)startNew(list.slice(0,target));else showSessionSetup();
+  if(list.length)startNew(list.slice(0,target));else{sessionStorage.removeItem('udt_home_theory_session');showSessionSetup()}
 }
 function mentorStartOral(){if(!academySupported()){alert('Trening obsługowy nie jest dostępny dla tego modułu.');return}backToMenu();showOralSetup()}
 function mentorStartTechnology(){
   if(!academySupported()){alert('Technologia nie jest dostępna dla tego modułu.');return}
-  window.__homePlanTechnologyMachine=activeMachine;
-  window.__homePlanTechnologyStart={machine:activeMachine,key:homePlanKey(activeMachine),day:homeDayKey(),startedAt:new Date().toISOString()};
   showAcademy();showTechnologyModule();
 }
 function mentorStartGames(){if(!academySupported()){alert('Gry proceduralne nie są dostępne dla tego modułu.');return}showAcademy();showAcademyGames()}
@@ -543,51 +544,11 @@ const _backToMenu620=window.backToMenu;
 window.backToMenu=function(){_backToMenu620();document.getElementById('setup')?.classList.add('hidden');document.getElementById('dashboard')?.classList.remove('hidden');renderHomeDashboard()};
 const _updateDashboard620=window.updateDashboard;
 window.updateDashboard=function(){_updateDashboard620();renderHomeDashboard()};
-const _finish620=window.finish;
-window.finish=function(completed=false){const before=(state.history||[]).length;_finish620(completed);if((state.history||[]).length>before){const latest=state.history[0];if(latest?.completed&&(Number(latest.count)||0)>=8)markHomePlan('theory')}};
+// Zaliczenie teorii Planu dnia odbywa się bezpośrednio w app.js w funkcji finish().
+// Nie opakowujemy już finish() wrapperem, bo wewnętrzne wywołania mogły omijać wrapper.
+
 const _rateOral620=window.rateOral;
 window.rateOral=function(grade){_rateOral620(grade);markHomePlan('oral')};
-window.completeHomePlanTechnology=function(machineId){
-  const requestedMachine=machineId||activeMachine;
-  const key=homePlanKey(requestedMachine);
-  const beforeRaw=localStorage.getItem(key);
-  const before=homePlanState(requestedMachine);
-  let error=null;
-  try{markHomePlan('tech',1,requestedMachine)}catch(e){error=String(e&&e.stack||e)}
-  const afterRaw=localStorage.getItem(key);
-  const after=homePlanState(requestedMachine);
-  const diagnostic={
-    version:'6.3.5-diagnostic',
-    activeMachine,
-    requestedMachine,
-    source:window.__homePlanTechnologyStart||null,
-    key,
-    beforeRaw,
-    before,
-    afterRaw,
-    after,
-    verified:after.tech===true,
-    error
-  };
-  window.__techPlanDiagnosticLast=diagnostic;
-  return diagnostic;
-};
-window.showTechPlanDiagnostic=function(diagnostic){
-  const d=diagnostic||window.__techPlanDiagnosticLast||{};
-  const text=[
-    'DIAGNOSTYKA PLANU TECHNOLOGII 6.3.5',
-    `activeMachine: ${d.activeMachine}`,
-    `requestedMachine: ${d.requestedMachine}`,
-    `sourceMachine: ${d.source?.machine||'brak'}`,
-    `key: ${d.key||'brak'}`,
-    `before.tech: ${d.before?.tech}`,
-    `after.tech: ${d.after?.tech}`,
-    `verified: ${d.verified}`,
-    `error: ${d.error||'brak'}`,
-    `afterRaw: ${d.afterRaw||'brak'}`
-  ].join('\n');
-  alert(text);
-};
 const _recordGame620=window.recordGame;
 window.recordGame=function(ok,xp){_recordGame620(ok,xp);markHomePlan('games',1)};
 setTimeout(()=>{document.getElementById('setup')?.classList.add('hidden');renderHomeDashboard()},0);

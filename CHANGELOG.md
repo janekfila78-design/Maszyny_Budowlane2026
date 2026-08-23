@@ -1,3 +1,11 @@
+# 6.3.7 — Bezpośredni zapis technologii w planie dnia
+
+- Usunięto pośredni łańcuch `__homePlanTechnologyMachine → completeHomePlanTechnology → markHomePlan`.
+- `setTechStatus()` zapisuje teraz `tech: true` bezpośrednio do klucza bieżącego modułu.
+- Klucz koparki jednonaczyniowej to zawsze `udt_home_plan_v621_excavators`.
+- Zapis działa niezależnie od wrapperów, kolejności ładowania plików i globalnych znaczników.
+- Podbito wersję oraz cache PWA do 6.3.7.
+
 # 6.3.4 — Bezpośrednie zaliczanie technologii
 
 - usunięto zawodny wrapper `window.setTechStatus`,
