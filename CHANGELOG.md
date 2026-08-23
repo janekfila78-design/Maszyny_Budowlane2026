@@ -1,3 +1,18 @@
+# 6.3.2 — Powtórka po planie dnia
+
+- Po ukończeniu wszystkich 4 elementów planu przycisk „Powtórz trudne pytania” uruchamia teraz osobną sesję 8 najtrudniejszych pytań.
+- Pula jest układana z pytań już przerobionych według błędów, skuteczności i terminu SRS, a następnie uzupełniana inteligentną pulą.
+- Przed ukończeniem planu główny przycisk nadal prowadzi do kolejnego brakującego priorytetu Mentora.
+- Podbito cache PWA, aby telefon pobrał nową logikę.
+
+## 6.3.1 — Plan dnia i poprawki daty
+
+- Plan dnia uruchamia teraz dokładnie 8 pytań, zgodnie z etykietą kafelka.
+- Zadanie teorii jest zaliczane dopiero po ukończeniu pełnej sesji co najmniej 8 pytań.
+- Pierwszy plan teorii bez wykrytego słabego działu startuje automatycznie z pulą Mentora zamiast otwierać ogólny formularz.
+- Plan dnia, historia gotowości, seria nauki i aktywność używają lokalnej daty urządzenia zamiast UTC.
+- Podbito cache PWA, aby poprawka została pobrana bez trzymania starego kodu.
+
 # Changelog
 
 ## 6.3.0 — Inteligentne wyjaśnienia

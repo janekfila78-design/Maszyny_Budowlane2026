@@ -145,9 +145,10 @@ function startWeaknessTraining(){
   const count=Math.min(Math.max(1,Number(document.getElementById('count').value)||20),list.length);
   startNew(list.slice(0,count))
 }
-function todayKey(){return new Date().toISOString().slice(0,10)}
+function calendarDayKey(date=new Date()){const x=new Date(date);x.setMinutes(x.getMinutes()-x.getTimezoneOffset());return x.toISOString().slice(0,10)}
+function todayKey(){return calendarDayKey()}
 function registerStudyDay(){const d=todayKey();if(!state.studyDays.includes(d)){state.studyDays.push(d);state.studyDays=state.studyDays.slice(-400)}}
-function studyStreak(){const set=new Set(state.studyDays);let d=new Date(),n=0;for(;;){const k=d.toISOString().slice(0,10);if(!set.has(k))break;n++;d.setDate(d.getDate()-1)}return n}
+function studyStreak(){const set=new Set(state.studyDays);let d=new Date(),n=0;for(;;){const k=calendarDayKey(d);if(!set.has(k))break;n++;d.setDate(d.getDate()-1)}return n}
 function masteryFor(q){const s=state.stats[q.id];if(!s||s.attempts<2)return 0;const rate=s.correct/s.attempts;if(s.attempts>=3&&rate>=.8)return 1;if(rate>=.5)return .5;return .15}
 function masteryPercent(){return Math.round(QUESTIONS.reduce((a,q)=>a+masteryFor(q),0)/QUESTIONS.length*100)}
 function xpLevel(){const xp=state.xp||0,level=Math.floor(Math.sqrt(xp/100))+1,start=(level-1)**2*100,end=level**2*100;return {level,start,end,pct:Math.round((xp-start)/Math.max(1,end-start)*100)}}

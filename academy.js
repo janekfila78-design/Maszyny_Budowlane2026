@@ -10,7 +10,7 @@ function loadAcademyDataForMachine(machineId=activeMachine){
 let academyData=loadAcademyDataForMachine();
 let academyGame=null,academyTechIndex=0,academyExam=null;
 function loadAcademyData(){return loadAcademyDataForMachine(activeMachine)}
-function saveAcademy(){academyData.days[new Date().toISOString().slice(0,10)]=1;localStorage.setItem(academyStorageKey(activeMachine),JSON.stringify(academyData))}
+function saveAcademy(){academyData.days[calendarDayKey()]=1;localStorage.setItem(academyStorageKey(activeMachine),JSON.stringify(academyData))}
 const _setMachineAcademy=window.setMachine;window.setMachine=function(id){const ok=_setMachineAcademy(id);if(ok)academyData=loadAcademyDataForMachine(id);return ok}
 function academySupported(){return activeMachine==='excavators'||activeMachine==='backhoes'}
 function academyTechTasks(){return TECHNOLOGY_TASKS[activeMachine]||[]}

@@ -1,6 +1,6 @@
 
 /* UDT Trainer 5.6.0 — PWA, offline, aktualizacje, chmura, statystyki, wyjaśnienia */
-const UDT_VERSION='6.3.0';
+const UDT_VERSION='6.3.2';
 let deferredInstallPrompt=null;
 let newWorkerWaiting=null;
 
@@ -81,7 +81,7 @@ const originalUpdateMachineUI=window.updateMachineUI;
 window.updateMachineUI=function(){originalUpdateMachineUI();const bh=document.querySelector('#browser h1');if(bh)bh.textContent=`Baza ${QUESTIONS.length} pytań`;__searchCacheMachine=null;}
 
 const originalShowStats=window.showStats;
-window.showStats=function(){hideMainPanels();document.getElementById('stats').classList.remove('hidden');document.getElementById('statsBody').innerHTML=enhancedStatsHTML();requestAnimationFrame(()=>{const hist=[...state.history].reverse().slice(-12);drawLineChart(document.getElementById('resultsChart'),hist.map(h=>h.pct),hist.map(h=>h.date));const days=[];for(let i=13;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);days.push(d.toISOString().slice(0,10))}const counts=days.map(d=>state.studyDays.filter(x=>x===d).length);drawBars(document.getElementById('activityChart'),counts,days.map(d=>d.slice(5)))})}
+window.showStats=function(){hideMainPanels();document.getElementById('stats').classList.remove('hidden');document.getElementById('statsBody').innerHTML=enhancedStatsHTML();requestAnimationFrame(()=>{const hist=[...state.history].reverse().slice(-12);drawLineChart(document.getElementById('resultsChart'),hist.map(h=>h.pct),hist.map(h=>h.date));const days=[];for(let i=13;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);days.push(calendarDayKey(d))}const counts=days.map(d=>state.studyDays.filter(x=>x===d).length);drawBars(document.getElementById('activityChart'),counts,days.map(d=>d.slice(5)))})}
 
 // --- Asystent Nauki 5.2: wyjaśnienia błędów, wskazówki i pułapki ---
 function answerText(q,index){return clean(q?.a?.[index] ?? '')}
@@ -302,8 +302,18 @@ function showUnifiedMentor(){
   <div class="mentor-card"><h2>Aktualny moduł</h2><div class="history-item"><span>${escapeHtml(theory.module.name)} • ${theory.module.seen}/${theory.module.total}</span><b>${theory.module.attempts?theory.module.pct+'%':'brak danych'}</b></div></div>`;
   window.scrollTo({top:0,behavior:'smooth'});
 }
-function mentorStartTheory(category){
-  const list=mentorQuestionsForCategory(activeMachine,category);backToMenu();document.getElementById('mode').value='learn';document.getElementById('count').value=Math.min(10,Math.max(1,list.length));if(list.length)startNew(list.slice(0,10));else{document.getElementById('source').value='weaknesses';startNew()}
+function mentorStartTheory(category,count=8){
+  const list=mentorQuestionsForCategory(activeMachine,category);const target=Math.max(1,Number(count)||8);backToMenu();document.getElementById('mode').value='learn';document.getElementById('count').value=Math.min(target,Math.max(1,list.length));if(list.length)startNew(list.slice(0,target));else{document.getElementById('source').value='weaknesses';document.getElementById('count').value=Math.min(target,QUESTIONS.length);startNew()}
+}
+function mentorStartHomeTheory(){
+  const target=8;
+  const theory=mentorTheorySummary();
+  const weak=theory.cats.filter(x=>x.attempts>=2).sort((a,b)=>a.pct-b.pct||b.wrong-a.wrong)[0];
+  if(weak){mentorStartTheory(weak.name,target);return}
+  backToMenu();document.getElementById('mode').value='learn';
+  const list=smartSrsPool(target);
+  document.getElementById('count').value=Math.min(target,Math.max(1,list.length));
+  if(list.length)startNew(list.slice(0,target));else showSessionSetup();
 }
 function mentorStartOral(){if(!academySupported()){alert('Trening obsługowy nie jest dostępny dla tego modułu.');return}backToMenu();showOralSetup()}
 function mentorStartTechnology(){if(!academySupported()){alert('Technologia nie jest dostępna dla tego modułu.');return}showAcademy();showTechnologyModule()}
@@ -350,7 +360,7 @@ setTimeout(ensureUnifiedMentorUI,0);
 
 // === 6.1.1: aktywny Mentor, historia gotowości i trening jednym kliknięciem ===
 function mentorHistoryKey(machineId=activeMachine){return `udt_mentor_readiness_history_v2_${machineId}`} 
-function mentorDayKey(date=new Date()){return date.toISOString().slice(0,10)}
+function mentorDayKey(date=new Date()){return calendarDayKey(date)}
 function mentorReadinessHistory(current){
   let history=[];try{history=JSON.parse(localStorage.getItem(mentorHistoryKey())||'[]')}catch{}
   if(!Array.isArray(history))history=[];
@@ -371,11 +381,12 @@ function mentorQuestionsForCategory(machineId,category){
     return wb-wa;
   });
 }
-window.mentorStartTheory=function(category){
+window.mentorStartTheory=function(category,count=8){
   const list=mentorQuestionsForCategory(activeMachine,category);
+  const target=Math.max(1,Number(count)||8);
   backToMenu();document.getElementById('mode').value='learn';
-  if(!list.length){document.getElementById('source').value='weaknesses';document.getElementById('count').value=Math.min(10,QUESTIONS.length);startNew();return}
-  document.getElementById('count').value=Math.min(10,list.length);startNew(list.slice(0,10));
+  if(!list.length){document.getElementById('source').value='weaknesses';document.getElementById('count').value=Math.min(target,QUESTIONS.length);startNew();return}
+  document.getElementById('count').value=Math.min(target,list.length);startNew(list.slice(0,target));
 }
 function mentorPrimaryAction(theory,academy){
   const weak=theory.cats.filter(x=>x.attempts>=2).sort((a,b)=>a.pct-b.pct||b.wrong-a.wrong)[0];
@@ -384,10 +395,30 @@ function mentorPrimaryAction(theory,academy){
   if(academy.techKnown===0||academy.techRepeat>0)return {label:'Kontynuuj: technologia',run:()=>mentorStartTechnology()};
   return {label:'Kontynuuj: trening mieszany',run:()=>mentorStartGames()};
 }
-window.mentorContinueLearning=function(){const t=mentorTheorySummary(),a=mentorAcademySummary();mentorPrimaryAction(t,a).run()}
+function mentorHardReviewPool(limit=8){
+  const attempted=QUESTIONS.filter(q=>(state.stats[q.id]?.attempts||0)>0);
+  const ranked=attempted.sort((a,b)=>smartWeight(b)-smartWeight(a));
+  const fallback=smartSrsPool(limit);
+  const merged=[...ranked,...fallback,...QUESTIONS];
+  const seen=new Set();
+  return merged.filter(q=>!seen.has(q.id)&&seen.add(q.id)).slice(0,limit);
+}
+function mentorStartHardReview(){
+  const target=8,list=mentorHardReviewPool(target);
+  backToMenu();document.getElementById('mode').value='learn';
+  document.getElementById('count').value=Math.min(target,Math.max(1,list.length));
+  if(list.length)startNew(list);else showSessionSetup();
+}
+function isHomePlanComplete(){
+  const x=homePlanState();return !!(x.theory&&x.oral&&x.tech&&(Number(x.games)||0)>=5);
+}
+window.mentorContinueLearning=function(){
+  if(isHomePlanComplete()){mentorStartHardReview();return}
+  const t=mentorTheorySummary(),a=mentorAcademySummary();mentorPrimaryAction(t,a).run();
+}
 function mentorPlanDetailed(theory,academy){
   const plan=[];const weakest=theory.cats.filter(x=>x.attempts>=2).slice(0,2);
-  weakest.forEach((x,i)=>plan.push({icon:'📖',title:`${i===0?'Najpierw: ':''}${x.name}`,detail:`${i===0?8:5} pytań • skuteczność ${x.pct}% • ${x.wrong} błędów`,action:`mentorStartTheory('${x.name.replace(/'/g,"\\'")}')`,label:`${i===0?8:5} pytań`}));
+  weakest.forEach((x,i)=>plan.push({icon:'📖',title:`${i===0?'Najpierw: ':''}${x.name}`,detail:`${i===0?8:5} pytań • skuteczność ${x.pct}% • ${x.wrong} błędów`,action:`mentorStartTheory('${x.name.replace(/'/g,"\\'")}',${i===0?8:5})`,label:`${i===0?8:5} pytań`}));
   plan.push({icon:'🎙️',title:'Część obsługowa',detail:'1 zadanie ustne z oceną brakujących elementów',action:'mentorStartOral()',label:'1 zadanie'});
   plan.push({icon:'🚜',title:'Technologia',detail:'1 pełna procedura technologiczna',action:'mentorStartTechnology()',label:'1 zadanie'});
   if(academy.gamesPlayed<10||academy.gamesPct<80)plan.push({icon:'🎮',title:'Utrwalenie kolejności',detail:'5 krótkich rund proceduralnych',action:'mentorStartGames()',label:'5 rund'});
@@ -453,7 +484,7 @@ setTimeout(()=>{ensureUnifiedMentorUI();updateMentorDashboard()},0);
 
 // === 6.2.0: ekran Start jako centrum dowodzenia ===
 function homePlanKey(machineId=activeMachine){return `udt_home_plan_v621_${machineId}`} 
-function homeDayKey(){return new Date().toISOString().slice(0,10)}
+function homeDayKey(){return calendarDayKey()}
 function homePlanState(){
   let x={};try{x=JSON.parse(localStorage.getItem(homePlanKey())||'{}')}catch{}
   const day=homeDayKey();if(x.day!==day)x={day,theory:false,oral:false,tech:false,games:0};return x;
@@ -463,7 +494,7 @@ function markHomePlan(kind,amount=1){const x=homePlanState();if(kind==='games')x
 function homePlanItems(theory,academy){
   const weak=theory.cats.filter(x=>x.attempts>=2).sort((a,b)=>a.pct-b.pct||b.wrong-a.wrong)[0];
   return [
-    {id:'theory',icon:'📖',title:weak?`8 pytań: ${weak.name}`:'8 pytań ABC',done:homePlanState().theory,run:weak?`mentorStartTheory('${weak.name.replace(/'/g,"\\'")}')`:'showSessionSetup()'},
+    {id:'theory',icon:'📖',title:weak?`8 pytań: ${weak.name}`:'8 pytań ABC',done:homePlanState().theory,run:'mentorStartHomeTheory()'},
     {id:'oral',icon:'🎙️',title:'1 zadanie obsługowe',done:homePlanState().oral,run:'mentorStartOral()'},
     {id:'tech',icon:'🚜',title:'1 zadanie technologiczne',done:homePlanState().tech,run:'mentorStartTechnology()'},
     {id:'games',icon:'🎮',title:'5 rund proceduralnych',done:(homePlanState().games||0)>=5,run:'mentorStartGames()'}
@@ -508,7 +539,7 @@ window.backToMenu=function(){_backToMenu620();document.getElementById('setup')?.
 const _updateDashboard620=window.updateDashboard;
 window.updateDashboard=function(){_updateDashboard620();renderHomeDashboard()};
 const _finish620=window.finish;
-window.finish=function(completed=false){const before=(state.history||[]).length;_finish620(completed);if((state.history||[]).length>before)markHomePlan('theory')};
+window.finish=function(completed=false){const before=(state.history||[]).length;_finish620(completed);if((state.history||[]).length>before){const latest=state.history[0];if(latest?.completed&&(Number(latest.count)||0)>=8)markHomePlan('theory')}};
 const _rateOral620=window.rateOral;
 window.rateOral=function(grade){_rateOral620(grade);markHomePlan('oral')};
 const _setTechStatus620=window.setTechStatus;
