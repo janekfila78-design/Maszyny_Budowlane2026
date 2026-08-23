@@ -1,6 +1,6 @@
 
 /* UDT Trainer 5.6.0 — PWA, offline, aktualizacje, chmura, statystyki, wyjaśnienia */
-const UDT_VERSION='6.3.2';
+const UDT_VERSION='6.3.3';
 let deferredInstallPrompt=null;
 let newWorkerWaiting=null;
 
@@ -316,7 +316,7 @@ function mentorStartHomeTheory(){
   if(list.length)startNew(list.slice(0,target));else showSessionSetup();
 }
 function mentorStartOral(){if(!academySupported()){alert('Trening obsługowy nie jest dostępny dla tego modułu.');return}backToMenu();showOralSetup()}
-function mentorStartTechnology(){if(!academySupported()){alert('Technologia nie jest dostępna dla tego modułu.');return}showAcademy();showTechnologyModule()}
+function mentorStartTechnology(){if(!academySupported()){alert('Technologia nie jest dostępna dla tego modułu.');return}window.__homePlanTechnologyMachine=activeMachine;showAcademy();showTechnologyModule()}
 function mentorStartGames(){if(!academySupported()){alert('Gry proceduralne nie są dostępne dla tego modułu.');return}showAcademy();showAcademyGames()}
 
 // Mentor Akademii korzysta od teraz z tego samego silnika.
@@ -485,12 +485,12 @@ setTimeout(()=>{ensureUnifiedMentorUI();updateMentorDashboard()},0);
 // === 6.2.0: ekran Start jako centrum dowodzenia ===
 function homePlanKey(machineId=activeMachine){return `udt_home_plan_v621_${machineId}`} 
 function homeDayKey(){return calendarDayKey()}
-function homePlanState(){
-  let x={};try{x=JSON.parse(localStorage.getItem(homePlanKey())||'{}')}catch{}
+function homePlanState(machineId=activeMachine){
+  let x={};try{x=JSON.parse(localStorage.getItem(homePlanKey(machineId))||'{}')}catch{}
   const day=homeDayKey();if(x.day!==day)x={day,theory:false,oral:false,tech:false,games:0};return x;
 }
-function saveHomePlan(x){localStorage.setItem(homePlanKey(),JSON.stringify(x));renderHomeDashboard()}
-function markHomePlan(kind,amount=1){const x=homePlanState();if(kind==='games')x.games=Math.max(0,(x.games||0)+amount);else x[kind]=true;saveHomePlan(x)}
+function saveHomePlan(x,machineId=activeMachine){localStorage.setItem(homePlanKey(machineId),JSON.stringify(x));if(machineId===activeMachine)renderHomeDashboard()}
+function markHomePlan(kind,amount=1,machineId=activeMachine){const x=homePlanState(machineId);if(kind==='games')x.games=Math.max(0,(x.games||0)+amount);else x[kind]=true;saveHomePlan(x,machineId)}
 function homePlanItems(theory,academy){
   const weak=theory.cats.filter(x=>x.attempts>=2).sort((a,b)=>a.pct-b.pct||b.wrong-a.wrong)[0];
   return [
@@ -543,7 +543,11 @@ window.finish=function(completed=false){const before=(state.history||[]).length;
 const _rateOral620=window.rateOral;
 window.rateOral=function(grade){_rateOral620(grade);markHomePlan('oral')};
 const _setTechStatus620=window.setTechStatus;
-window.setTechStatus=function(status){_setTechStatus620(status);markHomePlan('tech')};
+window.setTechStatus=function(status){
+  const machineId=window.__homePlanTechnologyMachine||activeMachine;
+  try{return _setTechStatus620(status)}
+  finally{markHomePlan('tech',1,machineId);window.__homePlanTechnologyMachine=null}
+};
 const _recordGame620=window.recordGame;
 window.recordGame=function(ok,xp){_recordGame620(ok,xp);markHomePlan('games',1)};
 setTimeout(()=>{document.getElementById('setup')?.classList.add('hidden');renderHomeDashboard()},0);

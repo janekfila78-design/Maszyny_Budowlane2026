@@ -1,14 +1,14 @@
-const VERSION='udt-trainer-6.3.2-post-plan-review';
+const VERSION='udt-trainer-6.3.3-tech-plan-fix';
 const CACHE=VERSION;
 const ASSETS=[
-  './','./index.html','./reset.html','./style.css?v=6.3.2-post-plan-review',
-  './app.js?v=6.3.2-post-plan-review','./enhancements.js?v=6.3.2-post-plan-review','./udt4.js?v=6.3.2-post-plan-review',
+  './','./index.html','./reset.html','./style.css?v=6.3.3-tech-plan-fix',
+  './app.js?v=6.3.3-tech-plan-fix','./enhancements.js?v=6.3.3-tech-plan-fix','./udt4.js?v=6.3.3-tech-plan-fix',
   './manifest.webmanifest','./icon-192.png','./icon-512.png',
   './crane_questions_1.js','./crane_questions_2.js','./crane_questions_3.js','./crane_questions_4.js',
   './excavator_questions_1.js','./backhoe_questions_1.js','./loader_questions_1.js',
-  './questions_init.js?v=6.3.2-post-plan-review','./oral_tasks.js?v=6.3.2-post-plan-review',
-  './technology_tasks.js?v=6.3.2-post-plan-review','./oral_trainer.js?v=6.3.2-post-plan-review',
-  './oral_ai.js?v=6.3.2-post-plan-review','./academy.js?v=6.3.2-post-plan-review'
+  './questions_init.js?v=6.3.3-tech-plan-fix','./oral_tasks.js?v=6.3.3-tech-plan-fix',
+  './technology_tasks.js?v=6.3.3-tech-plan-fix','./oral_trainer.js?v=6.3.3-tech-plan-fix',
+  './oral_ai.js?v=6.3.3-tech-plan-fix','./academy.js?v=6.3.3-tech-plan-fix'
 ];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(async cache=>{

@@ -1,3 +1,10 @@
+# 6.3.3 — Naprawa zaliczania technologii w planie dnia
+
+- zadanie technologiczne jest zaliczane dla modułu, z którego zostało uruchomione,
+- zapis planu dnia przyjmuje jawny identyfikator maszyny,
+- oznaczenie wykonania następuje także wtedy, gdy ponowne renderowanie zadania rzuci błąd,
+- poprawiono przypadek koparki jednonaczyniowej, w którym zadanie nie zmieniało koloru na zielony.
+
 # 6.3.2 — Powtórka po planie dnia
 
 - Po ukończeniu wszystkich 4 elementów planu przycisk „Powtórz trudne pytania” uruchamia teraz osobną sesję 8 najtrudniejszych pytań.
