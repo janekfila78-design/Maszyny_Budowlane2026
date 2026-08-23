@@ -1,6 +1,6 @@
 
 /* UDT Trainer 5.6.0 — PWA, offline, aktualizacje, chmura, statystyki, wyjaśnienia */
-const UDT_VERSION='6.3.3';
+const UDT_VERSION='6.3.4';
 let deferredInstallPrompt=null;
 let newWorkerWaiting=null;
 
@@ -542,11 +542,8 @@ const _finish620=window.finish;
 window.finish=function(completed=false){const before=(state.history||[]).length;_finish620(completed);if((state.history||[]).length>before){const latest=state.history[0];if(latest?.completed&&(Number(latest.count)||0)>=8)markHomePlan('theory')}};
 const _rateOral620=window.rateOral;
 window.rateOral=function(grade){_rateOral620(grade);markHomePlan('oral')};
-const _setTechStatus620=window.setTechStatus;
-window.setTechStatus=function(status){
-  const machineId=window.__homePlanTechnologyMachine||activeMachine;
-  try{return _setTechStatus620(status)}
-  finally{markHomePlan('tech',1,machineId);window.__homePlanTechnologyMachine=null}
+window.completeHomePlanTechnology=function(machineId){
+  markHomePlan('tech',1,machineId||activeMachine);
 };
 const _recordGame620=window.recordGame;
 window.recordGame=function(ok,xp){_recordGame620(ok,xp);markHomePlan('games',1)};

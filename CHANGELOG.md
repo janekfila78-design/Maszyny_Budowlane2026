@@ -1,3 +1,10 @@
+# 6.3.4 — Bezpośrednie zaliczanie technologii
+
+- usunięto zawodny wrapper `window.setTechStatus`,
+- zaliczenie planu dnia jest teraz wykonywane bezpośrednio w oryginalnej funkcji zadania technologicznego,
+- moduł źródłowy jest zapamiętywany przy wejściu z planu dnia i przekazywany jawnie do zapisu,
+- poprawka obejmuje osobne plany koparki i koparkoładowarki.
+
 # 6.3.3 — Naprawa zaliczania technologii w planie dnia
 
 - zadanie technologiczne jest zaliczane dla modułu, z którego zostało uruchomione,

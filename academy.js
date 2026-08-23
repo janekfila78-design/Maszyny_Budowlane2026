@@ -48,7 +48,19 @@ function renderTechnologyTask(){const tasks=academyTechTasks(),t=tasks[academyTe
 function showTechPanel(type){const t=academyTechTasks()[academyTechIndex],root=document.getElementById('techPanel');if(type==='steps')root.innerHTML=`<div class="tech-panel"><h3>Co robisz po kolei?</h3><ol>${t.steps.map(x=>`<li>${escA(x)}</li>`).join('')}</ol></div>`;if(type==='errors')root.innerHTML=`<div class="tech-panel danger-panel"><h3>Najczęstsze błędy</h3><ul>${t.errors.map(x=>`<li>${escA(x)}</li>`).join('')}</ul></div>`;if(type==='criteria')root.innerHTML=`<div class="tech-panel"><h3>Co musi być widoczne w wykonaniu?</h3>${t.criteria.map(x=>`<label class="checkline"><input type="checkbox"> ${escA(x)}</label>`).join('')}</div>`;if(type==='questions')root.innerHTML=`<div class="tech-panel"><h3>Możliwe pytania komisji</h3>${t.followups.map((x,i)=>`<div class="follow-card"><b>${i+1}.</b> ${escA(x)}</div>`).join('')}</div>`}
 function saveTechNote(){const t=academyTechTasks()[academyTechIndex],v=document.getElementById('techNote').value.trim();if(v)academyData.notes[t.id]=v;else delete academyData.notes[t.id];saveAcademy();toastA('Notatka zapisana')}
 function toggleTechFavorite(){const id=academyTechTasks()[academyTechIndex].id,i=academyData.favorites.indexOf(id);if(i>=0)academyData.favorites.splice(i,1);else academyData.favorites.push(id);saveAcademy();renderTechnologyTask()}
-function setTechStatus(status){const s=techStat(academyTechTasks()[academyTechIndex]);s.status=status;s.attempts++;academyData.xp+=status==='known'?12:status==='repeat'?2:5;saveAcademy();renderTechnologyTask()}
+function setTechStatus(status){
+  const planMachine=window.__homePlanTechnologyMachine||null;
+  const s=techStat(academyTechTasks()[academyTechIndex]);
+  s.status=status;
+  s.attempts++;
+  academyData.xp+=status==='known'?12:status==='repeat'?2:5;
+  saveAcademy();
+  if(planMachine&&typeof window.completeHomePlanTechnology==='function'){
+    window.completeHomePlanTechnology(planMachine);
+    window.__homePlanTechnologyMachine=null;
+  }
+  renderTechnologyTask();
+}
 function showAcademyGames(){academyRoot().innerHTML=academyNav('🎮 Gry proceduralne')+`<div class="game-menu">${academyModuleCard('🔢','Ułóż kolejność klikaniem','Klikasz kafelki, a one same wskakują jako krok 1, 2, 3…',"startSequenceGame()")}${academyModuleCard('🧩','Brakujący krok','Wybierz element wycięty z procedury',"startMissingGame()")}${academyModuleCard('🚫','Znajdź błąd','Jedna czynność jest niebezpieczna albo nielogiczna',"startErrorGame()")}${academyModuleCard('⚡','Sprint','10 szybkich rund z różnych procedur',"startSprintGame()")}</div>`}
 function pickGameTask(min=4){const a=academyAllTasks().filter(t=>(t.steps||[]).length>=min);return a[Math.floor(Math.random()*a.length)]}
 function startSequenceGame(){const task=pickGameTask();academyGame={type:'sequence',task,chosen:[],options:shuffleOral(task.steps.map((x,i)=>({x,i}))),checked:false};renderSequenceGame()}
