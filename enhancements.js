@@ -1,6 +1,6 @@
 
 /* UDT Trainer 5.6.0 — PWA, offline, aktualizacje, chmura, statystyki, wyjaśnienia */
-const UDT_VERSION='6.3.7';
+const UDT_VERSION='6.3.8';
 let deferredInstallPrompt=null;
 let newWorkerWaiting=null;
 
@@ -42,7 +42,7 @@ async function installPWA(){if(!deferredInstallPrompt){alert('Jeśli przycisk in
 async function registerPWA(){
  if(!('serviceWorker' in navigator)||location.protocol==='file:')return;
  try{
-   const reg=await navigator.serviceWorker.register('./sw.js?v=6.3.6-direct-tech-plan-fix',{updateViaCache:'none'});
+   const reg=await navigator.serviceWorker.register('./sw.js?v=6.3.8-home-plan-stable',{updateViaCache:'none'});
    if(reg.waiting)showUpdate(reg.waiting);
    reg.addEventListener('updatefound',()=>{const w=reg.installing;if(!w)return;w.addEventListener('statechange',()=>{if(w.state==='installed'&&navigator.serviceWorker.controller)showUpdate(w)})});
    setInterval(()=>reg.update().catch(()=>{}),15*60*1000);
@@ -306,13 +306,10 @@ function mentorStartTheory(category,count=8){
   const list=mentorQuestionsForCategory(activeMachine,category);const target=Math.max(1,Number(count)||8);backToMenu();document.getElementById('mode').value='learn';document.getElementById('count').value=Math.min(target,Math.max(1,list.length));if(list.length)startNew(list.slice(0,target));else{document.getElementById('source').value='weaknesses';document.getElementById('count').value=Math.min(target,QUESTIONS.length);startNew()}
 }
 function mentorStartHomeTheory(){
-  const target=8;
-  // Zapamiętujemy, że ta konkretna sesja pochodzi z pierwszego kafelka Planu dnia.
-  // sessionStorage przetrwa przejścia między ekranami i nie pomyli zwykłej sesji z planem.
-  sessionStorage.setItem('udt_home_theory_session',JSON.stringify({machineId:activeMachine,target,startedAt:Date.now()}));
-  const theory=mentorTheorySummary();
-  const weak=theory.cats.filter(x=>x.attempts>=2).sort((a,b)=>a.pct-b.pct||b.wrong-a.wrong)[0];
-  if(weak){mentorStartTheory(weak.name,target);return}
+  const target=8,theory=mentorTheorySummary(),plan=ensureHomePlan(theory);
+  // Sesja Planu dnia jest powiązana z konkretnym modułem i zamrożonym działem.
+  sessionStorage.setItem('udt_home_theory_session',JSON.stringify({machineId:activeMachine,target,category:plan.theoryCategory||null,startedAt:Date.now()}));
+  if(plan.theoryCategory){mentorStartTheory(plan.theoryCategory,target);return}
   backToMenu();document.getElementById('mode').value='learn';
   const list=smartSrsPool(target);
   document.getElementById('count').value=Math.min(target,Math.max(1,list.length));
@@ -419,8 +416,13 @@ function isHomePlanComplete(){
   const x=homePlanState();return !!(x.theory&&x.oral&&x.tech&&(Number(x.games)||0)>=5);
 }
 window.mentorContinueLearning=function(){
-  if(isHomePlanComplete()){mentorStartHardReview();return}
-  const t=mentorTheorySummary(),a=mentorAcademySummary();mentorPrimaryAction(t,a).run();
+  const theory=mentorTheorySummary(),academy=mentorAcademySummary(),items=homePlanItems(theory,academy);
+  const next=items.find(item=>!item.done);
+  if(!next){mentorStartHardReview();return}
+  if(next.id==='theory')mentorStartHomeTheory();
+  else if(next.id==='oral')mentorStartOral();
+  else if(next.id==='tech')mentorStartTechnology();
+  else mentorStartGames();
 }
 function mentorPlanDetailed(theory,academy){
   const plan=[];const weakest=theory.cats.filter(x=>x.attempts>=2).slice(0,2);
@@ -491,19 +493,33 @@ setTimeout(()=>{ensureUnifiedMentorUI();updateMentorDashboard()},0);
 // === 6.2.0: ekran Start jako centrum dowodzenia ===
 function homePlanKey(machineId=activeMachine){return `udt_home_plan_v621_${machineId}`} 
 function homeDayKey(){return calendarDayKey()}
+function newHomePlan(day=homeDayKey()){return {day,theory:false,oral:false,tech:false,games:0,theoryCategory:null}}
 function homePlanState(machineId=activeMachine){
   let x={};try{x=JSON.parse(localStorage.getItem(homePlanKey(machineId))||'{}')}catch{}
-  const day=homeDayKey();if(x.day!==day)x={day,theory:false,oral:false,tech:false,games:0};return x;
+  const day=homeDayKey();if(x.day!==day)x=newHomePlan(day);return x;
+}
+function chooseHomeTheoryCategory(theory){
+  const weak=theory.cats.filter(x=>x.attempts>=2).sort((a,b)=>a.pct-b.pct||b.wrong-a.wrong)[0];
+  return weak?.name||null;
+}
+function ensureHomePlan(theory,machineId=activeMachine){
+  const x=homePlanState(machineId);
+  if(!Object.prototype.hasOwnProperty.call(x,'theoryCategory')||x.theoryCategory===undefined){x.theoryCategory=null}
+  if(!x.theory&&x.theoryCategory===null){
+    x.theoryCategory=chooseHomeTheoryCategory(theory);
+    localStorage.setItem(homePlanKey(machineId),JSON.stringify(x));
+  }
+  return x;
 }
 function saveHomePlan(x,machineId=activeMachine){localStorage.setItem(homePlanKey(machineId),JSON.stringify(x));if(machineId===activeMachine)renderHomeDashboard()}
 function markHomePlan(kind,amount=1,machineId=activeMachine){const x=homePlanState(machineId);if(kind==='games')x.games=Math.max(0,(x.games||0)+amount);else x[kind]=true;saveHomePlan(x,machineId)}
 function homePlanItems(theory,academy){
-  const weak=theory.cats.filter(x=>x.attempts>=2).sort((a,b)=>a.pct-b.pct||b.wrong-a.wrong)[0];
+  const plan=ensureHomePlan(theory);
   return [
-    {id:'theory',icon:'📖',title:weak?`8 pytań: ${weak.name}`:'8 pytań ABC',done:homePlanState().theory,run:'mentorStartHomeTheory()'},
-    {id:'oral',icon:'🎙️',title:'1 zadanie obsługowe',done:homePlanState().oral,run:'mentorStartOral()'},
-    {id:'tech',icon:'🚜',title:'1 zadanie technologiczne',done:homePlanState().tech,run:'mentorStartTechnology()'},
-    {id:'games',icon:'🎮',title:'5 rund proceduralnych',done:(homePlanState().games||0)>=5,run:'mentorStartGames()'}
+    {id:'theory',icon:'📖',title:plan.theoryCategory?`8 pytań: ${plan.theoryCategory}`:'8 pytań ABC',done:!!plan.theory,run:'mentorStartHomeTheory()'},
+    {id:'oral',icon:'🎙️',title:'1 zadanie obsługowe',done:!!plan.oral,run:'mentorStartOral()'},
+    {id:'tech',icon:'🚜',title:'1 zadanie technologiczne',done:!!plan.tech,run:'mentorStartTechnology()'},
+    {id:'games',icon:'🎮',title:'5 rund proceduralnych',done:(Number(plan.games)||0)>=5,run:'mentorStartGames()'}
   ];
 }
 function bestStudyStreak(){
