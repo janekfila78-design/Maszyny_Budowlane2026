@@ -1,6 +1,6 @@
 
 /* UDT Trainer 5.6.0 — PWA, offline, aktualizacje, chmura, statystyki, wyjaśnienia */
-const UDT_VERSION='6.3.8';
+const UDT_VERSION='6.3.9';
 let deferredInstallPrompt=null;
 let newWorkerWaiting=null;
 
@@ -42,7 +42,7 @@ async function installPWA(){if(!deferredInstallPrompt){alert('Jeśli przycisk in
 async function registerPWA(){
  if(!('serviceWorker' in navigator)||location.protocol==='file:')return;
  try{
-   const reg=await navigator.serviceWorker.register('./sw.js?v=6.3.8-home-plan-stable',{updateViaCache:'none'});
+   const reg=await navigator.serviceWorker.register('./sw.js?v=6.3.9-mentor-mix',{updateViaCache:'none'});
    if(reg.waiting)showUpdate(reg.waiting);
    reg.addEventListener('updatefound',()=>{const w=reg.installing;if(!w)return;w.addEventListener('statechange',()=>{if(w.state==='installed'&&navigator.serviceWorker.controller)showUpdate(w)})});
    setInterval(()=>reg.update().catch(()=>{}),15*60*1000);
@@ -384,12 +384,42 @@ function mentorQuestionsForCategory(machineId,category){
     return wb-wa;
   });
 }
+function mentorCategoryRecentKey(machineId,category){return `udt_mentor_recent_category_v1_${machineId}_${encodeURIComponent(category)}`}
+function mentorLoadRecentCategoryIds(machineId,category){
+  try{const x=JSON.parse(localStorage.getItem(mentorCategoryRecentKey(machineId,category))||'[]');return Array.isArray(x)?x.map(String).slice(-40):[]}catch{return []}
+}
+function mentorSaveRecentCategoryIds(machineId,category,questions){
+  const prev=mentorLoadRecentCategoryIds(machineId,category),ids=questions.map(q=>String(q.id));
+  localStorage.setItem(mentorCategoryRecentKey(machineId,category),JSON.stringify([...prev,...ids].slice(-40)));
+}
+function mentorMixedCategoryPool(machineId,category,count=8){
+  const ranked=mentorQuestionsForCategory(machineId,category),target=Math.min(Math.max(1,Number(count)||8),ranked.length);
+  if(!target)return [];
+  const recent=new Set(mentorLoadRecentCategoryIds(machineId,category));
+  const priorityCount=Math.min(target,Math.max(1,Math.ceil(target*.75)));
+  const priorityWindow=ranked.slice(0,Math.min(ranked.length,Math.max(priorityCount*2,12)));
+  const explorationWindow=ranked.slice(Math.min(ranked.length,priorityWindow.length));
+  const pick=(source,n,avoidRecent=true)=>{
+    const preferred=source.filter(q=>!avoidRecent||!recent.has(String(q.id))),fallback=source.filter(q=>!preferred.includes(q));
+    return shuffle([...preferred]).concat(shuffle([...fallback])).slice(0,n);
+  };
+  const chosen=pick(priorityWindow,priorityCount,true);
+  const used=new Set(chosen.map(q=>String(q.id)));
+  const exploreSource=explorationWindow.filter(q=>!used.has(String(q.id)));
+  chosen.push(...pick(exploreSource,target-chosen.length,true));
+  if(chosen.length<target){
+    const rest=ranked.filter(q=>!new Set(chosen.map(x=>String(x.id))).has(String(q.id)));
+    chosen.push(...pick(rest,target-chosen.length,false));
+  }
+  const result=shuffle(chosen.slice(0,target));
+  mentorSaveRecentCategoryIds(machineId,category,result);
+  return result;
+}
 window.mentorStartTheory=function(category,count=8){
-  const list=mentorQuestionsForCategory(activeMachine,category);
-  const target=Math.max(1,Number(count)||8);
+  const target=Math.max(1,Number(count)||8),list=mentorMixedCategoryPool(activeMachine,category,target);
   backToMenu();document.getElementById('mode').value='learn';
   if(!list.length){document.getElementById('source').value='weaknesses';document.getElementById('count').value=Math.min(target,QUESTIONS.length);startNew();return}
-  document.getElementById('count').value=Math.min(target,list.length);startNew(list.slice(0,target));
+  document.getElementById('count').value=list.length;startNew(list);
 }
 function mentorPrimaryAction(theory,academy){
   const weak=theory.cats.filter(x=>x.attempts>=2).sort((a,b)=>a.pct-b.pct||b.wrong-a.wrong)[0];

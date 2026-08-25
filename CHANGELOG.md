@@ -119,3 +119,8 @@
 - przycisk „Dlaczego?” prowadzi do pełnego wyjaśnienia zasady,
 - wersję aplikacji i cache PWA do 6.1.0,
 - README z historią projektu od wersji 1.0.
+
+## 6.3.9
+- Urozmaicono trening słabych działów: 75% priorytetowych + 25% przekrojowych pytań.
+- Dodano pamięć ostatnich zestawów, aby ograniczyć identyczne sesje.
+- Ujednolicono identyfikatory cache PWA.

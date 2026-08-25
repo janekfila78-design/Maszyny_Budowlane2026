@@ -1,14 +1,14 @@
-const VERSION='udt-trainer-6.3.8-home-plan-stable';
+const VERSION='udt-trainer-6.3.9-mentor-mix';
 const CACHE=VERSION;
 const ASSETS=[
-  './','./index.html','./reset.html','./style.css?v=6.3.8-home-plan-stable',
-  './app.js?v=6.3.8-home-plan-stable','./enhancements.js?v=6.3.8-home-plan-stable','./udt4.js?v=6.3.8-home-plan-stable',
+  './','./index.html','./reset.html','./style.css?v=6.3.9-mentor-mix',
+  './app.js?v=6.3.9-mentor-mix','./enhancements.js?v=6.3.9-mentor-mix','./udt4.js?v=6.3.9-mentor-mix',
   './manifest.webmanifest','./icon-192.png','./icon-512.png',
   './crane_questions_1.js','./crane_questions_2.js','./crane_questions_3.js','./crane_questions_4.js',
   './excavator_questions_1.js','./backhoe_questions_1.js','./loader_questions_1.js',
-  './questions_init.js?v=6.3.8-home-plan-stable','./oral_tasks.js?v=6.3.8-home-plan-stable',
-  './technology_tasks.js?v=6.3.8-home-plan-stable','./oral_trainer.js?v=6.3.8-home-plan-stable',
-  './oral_ai.js?v=6.3.8-home-plan-stable','./academy.js?v=6.3.8-home-plan-stable'
+  './questions_init.js?v=6.3.9-mentor-mix','./oral_tasks.js?v=6.3.9-mentor-mix',
+  './technology_tasks.js?v=6.3.9-mentor-mix','./oral_trainer.js?v=6.3.9-mentor-mix',
+  './oral_ai.js?v=6.3.9-mentor-mix','./academy.js?v=6.3.9-mentor-mix'
 ];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(async cache=>{
