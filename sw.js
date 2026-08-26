@@ -1,14 +1,14 @@
-const VERSION='udt-trainer-6.3.9-mentor-mix';
+const VERSION='udt-trainer-6.4.0-exam-date';
 const CACHE=VERSION;
 const ASSETS=[
-  './','./index.html','./reset.html','./style.css?v=6.3.9-mentor-mix',
-  './app.js?v=6.3.9-mentor-mix','./enhancements.js?v=6.3.9-mentor-mix','./udt4.js?v=6.3.9-mentor-mix',
+  './','./index.html','./reset.html','./style.css?v=6.4.0-exam-date',
+  './app.js?v=6.4.0-exam-date','./enhancements.js?v=6.4.0-exam-date','./udt4.js?v=6.4.0-exam-date',
   './manifest.webmanifest','./icon-192.png','./icon-512.png',
   './crane_questions_1.js','./crane_questions_2.js','./crane_questions_3.js','./crane_questions_4.js',
   './excavator_questions_1.js','./backhoe_questions_1.js','./loader_questions_1.js',
-  './questions_init.js?v=6.3.9-mentor-mix','./oral_tasks.js?v=6.3.9-mentor-mix',
-  './technology_tasks.js?v=6.3.9-mentor-mix','./oral_trainer.js?v=6.3.9-mentor-mix',
-  './oral_ai.js?v=6.3.9-mentor-mix','./academy.js?v=6.3.9-mentor-mix'
+  './questions_init.js?v=6.4.0-exam-date','./oral_tasks.js?v=6.4.0-exam-date',
+  './technology_tasks.js?v=6.4.0-exam-date','./oral_trainer.js?v=6.4.0-exam-date',
+  './oral_ai.js?v=6.4.0-exam-date','./academy.js?v=6.4.0-exam-date'
 ];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(async cache=>{

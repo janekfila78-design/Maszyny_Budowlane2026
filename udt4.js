@@ -1,5 +1,5 @@
 /* UDT Trainer 6.2.0 — legacy helpers without a second dashboard */
-const UDT4_VERSION='6.2.0';
+const UDT4_VERSION='6.4.0';
 
 function ensureProState(){
   state.dailyGoal=Number(state.dailyGoal)||25;
@@ -69,7 +69,7 @@ function ensureUdt4UI(){
     const app=document.querySelector('.app'),footer=document.querySelector('.footer'),p=document.createElement('div');
     p.id='settingsPanel';p.className='card hidden';
     p.innerHTML=`<div class="toolbar"><div><h1>⚙️ Ustawienia</h1><div class="small">Kopie zapasowe, synchronizacja i narzędzia techniczne.</div></div><button class="secondary" onclick="backToMenu()">Zamknij</button></div>
-      <div class="settings-grid"><div class="settings-box"><h2>🎯 Nauka</h2><label class="field"><span>Dzienny cel pytań</span><input id="dailyGoalInput" type="number" min="5" max="200" step="5"></label><label class="check"><input id="autoExplainInput" type="checkbox"> Automatycznie pokaż wyjaśnienie po błędzie</label><button onclick="saveProSettings()">Zapisz ustawienia</button></div>
+      <div class="settings-grid"><div class="settings-box"><h2>📅 Termin egzaminu</h2><p class="small">Osobny dla każdego modułu. Mentor dopasuje komunikat i dzienny cel do liczby dni.</p><label class="field"><span>Data egzaminu</span><input id="examDateInput" type="date"></label><div class="row"><button onclick="saveExamDateSetting()">Zapisz termin</button><button class="secondary" onclick="clearExamDateSetting()">Usuń</button></div></div><div class="settings-box"><h2>🎯 Nauka</h2><label class="field"><span>Dzienny cel pytań</span><input id="dailyGoalInput" type="number" min="5" max="200" step="5"></label><label class="check"><input id="autoExplainInput" type="checkbox"> Automatycznie pokaż wyjaśnienie po błędzie</label><button onclick="saveProSettings()">Zapisz ustawienia</button></div>
       <div class="settings-box"><h2>💾 Kopia danych</h2><p class="small">Eksport zapisuje postęp bieżącego modułu. Import odtwarza go z pliku.</p><div class="row"><button class="secondary" onclick="exportData()">📤 Eksport</button><button class="secondary" onclick="document.getElementById('importFile').click()">📥 Import</button></div></div>
       <div class="settings-box"><h2>☁️ Synchronizacja</h2><p class="small">Opcjonalna synchronizacja przez prywatny GitHub Gist.</p><button class="secondary" onclick="showSyncPanel()">Otwórz synchronizację</button></div>
       <div class="settings-box"><h2>🛠 Narzędzia</h2><div class="row"><button class="secondary" onclick="showDiagnostics()">Diagnostyka</button><button class="danger" onclick="resetProgress()">Wyzeruj postęp</button></div></div></div>`;
@@ -98,7 +98,7 @@ function refreshCoach(){
   // Funkcja zostaje jako kompatybilny no-op dla starszych wywołań.
   if(typeof renderHomeDashboard==='function')renderHomeDashboard();
 }
-function showSettings(){saveCurrentNote?.();hideMainPanels();document.getElementById('settingsPanel').classList.remove('hidden');ensureProState();document.getElementById('dailyGoalInput').value=state.dailyGoal||25;document.getElementById('autoExplainInput').checked=!!state.settings.autoExplain;window.scrollTo({top:0,behavior:'smooth'})}
+function showSettings(){saveCurrentNote?.();hideMainPanels();document.getElementById('settingsPanel').classList.remove('hidden');ensureProState();document.getElementById('dailyGoalInput').value=state.dailyGoal||25;document.getElementById('autoExplainInput').checked=!!state.settings.autoExplain;const examInput=document.getElementById('examDateInput');if(examInput)examInput.value=typeof getExamDate==='function'?getExamDate():'';window.scrollTo({top:0,behavior:'smooth'})}
 function saveProSettings(){ensureProState();state.dailyGoal=Math.max(5,Math.min(200,Number(document.getElementById('dailyGoalInput').value)||25));state.settings.autoExplain=!!document.getElementById('autoExplainInput').checked;saveState();refreshCoach();alert('Ustawienia zapisane.')}
 
 const __udt4Hide=window.hideMainPanels;window.hideMainPanels=function(){__udt4Hide();document.getElementById('settingsPanel')?.classList.add('hidden')};

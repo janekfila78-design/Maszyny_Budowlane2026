@@ -1,6 +1,6 @@
 
 /* UDT Trainer 5.6.0 — PWA, offline, aktualizacje, chmura, statystyki, wyjaśnienia */
-const UDT_VERSION='6.3.9';
+const UDT_VERSION='6.4.0';
 let deferredInstallPrompt=null;
 let newWorkerWaiting=null;
 
@@ -42,7 +42,7 @@ async function installPWA(){if(!deferredInstallPrompt){alert('Jeśli przycisk in
 async function registerPWA(){
  if(!('serviceWorker' in navigator)||location.protocol==='file:')return;
  try{
-   const reg=await navigator.serviceWorker.register('./sw.js?v=6.3.9-mentor-mix',{updateViaCache:'none'});
+   const reg=await navigator.serviceWorker.register('./sw.js?v=6.4.0-exam-date',{updateViaCache:'none'});
    if(reg.waiting)showUpdate(reg.waiting);
    reg.addEventListener('updatefound',()=>{const w=reg.installing;if(!w)return;w.addEventListener('statechange',()=>{if(w.state==='installed'&&navigator.serviceWorker.controller)showUpdate(w)})});
    setInterval(()=>reg.update().catch(()=>{}),15*60*1000);
@@ -484,6 +484,7 @@ window.showUnifiedMentor=function(){
   const deltaText=hist.delta===null?'To pierwszy zapis — jutro zobaczysz porównanie.':`${hist.delta>=0?'⬆':'⬇'} ${Math.abs(hist.delta)} punktów względem poprzedniego dnia (${hist.previous}% → ${ready}%).`;
   document.getElementById('mentorBody').innerHTML=`
   <div class="mentor-readiness mentor-readiness-big ${tone.cls}"><div><span>GOTOWOŚĆ DO EGZAMINU</span><b>${tone.emoji} ${ready}%</b><h3>${tone.label}</h3><p>${deltaText}</p><button class="mentor-continue" onclick="mentorContinueLearning()">▶ Kontynuuj naukę</button></div><div class="readiness-ring" style="--p:${ready}">${ready}%</div></div>
+  ${examDateCardHTML()}
   <div class="mentor-card mentor-today"><h2>📋 Dzisiaj zrób</h2>${plan.map((x,i)=>`<button class="mentor-plan-row" onclick="${x.action}"><span>${x.icon}</span><div><b>${i+1}. ${escapeHtml(x.title)}</b><small>${escapeHtml(x.detail)}</small></div><strong>${escapeHtml(x.label)} ›</strong></button>`).join('')}</div>
   <div class="mentor-overview"><div><b>${theory.pct}%</b><span>teoria ABC</span></div><div><b>${theory.totalSeen}/${theory.totalQuestions}</b><span>pytań poznanych</span></div><div><b>${academy.oralKnown}</b><span>obsługa: umiem</span></div><div><b>${academy.techKnown}</b><span>technologia: umiem</span></div><div><b>${academy.gamesPct}%</b><span>gry</span></div><div><b>${academy.examPct}%</b><span>egzaminy 1:1</span></div></div>
   <div class="mentor-card"><h2>🎯 Kliknij słaby dział i ćwicz</h2>${weak.length?weak.map(x=>`<button class="mentor-skill mentor-skill-button" onclick="mentorStartTheory('${x.name.replace(/'/g,"\\'")}')"><div><b>${escapeHtml(x.name)}</b><span>${x.questions} pytań • ${x.wrong} błędów</span></div><strong>${x.pct}% ›</strong><div class="mini-progress"><div style="width:${x.pct}%"></div></div></button>`).join(''):'<p class="small">Za mało odpowiedzi do analizy działów.</p>'}</div>
@@ -518,6 +519,51 @@ window.explanationHTML=function(q,selectedIndex=null,expanded=false){
     ${st}<div class="assistant-actions"><button class="secondary mini-btn" onclick="showExplanation(${q.id},${selectedIndex===null?'null':Number(selectedIndex)},${expanded?'false':'true'})">${expanded?'Zwiń':'📖 Dlaczego inne są złe?'}</button><button class="secondary mini-btn" onclick="showUnifiedMentor()">🧠 Mentor</button></div>`;
 };
 setTimeout(()=>{ensureUnifiedMentorUI();updateMentorDashboard()},0);
+
+
+
+
+// === 6.4.0: termin egzaminu i planowanie Mentora ===
+function examDateKey(machineId=activeMachine){return `udt_exam_date_v1_${machineId}`}
+function getExamDate(machineId=activeMachine){return localStorage.getItem(examDateKey(machineId))||''}
+function setExamDate(value,machineId=activeMachine){
+  const v=String(value||'').trim();
+  if(v)localStorage.setItem(examDateKey(machineId),v);else localStorage.removeItem(examDateKey(machineId));
+  if(machineId===activeMachine){renderHomeDashboard();updateMentorDashboard()}
+}
+function examDateInfo(machineId=activeMachine){
+  const raw=getExamDate(machineId);if(!raw)return {raw:'',days:null,label:'Brak terminu',phase:'none'};
+  const exam=new Date(raw+'T12:00:00'),today=new Date(homeDayKey()+'T12:00:00');
+  const days=Math.ceil((exam-today)/86400000);
+  const label=days>1?`Za ${days} dni`:days===1?'Jutro':days===0?'Dzisiaj':`Minął ${Math.abs(days)} ${Math.abs(days)===1?'dzień':'dni'} temu`;
+  const phase=days<0?'past':days<=1?'final':days<=3?'exam':days<=7?'focus':days<=14?'consolidate':'build';
+  return {raw,days,label,phase,dateLabel:exam.toLocaleDateString('pl-PL',{day:'2-digit',month:'long',year:'numeric'})};
+}
+function examPhaseText(info=examDateInfo()){
+  if(!info.raw)return 'Ustaw termin, a Mentor dopasuje tempo nauki.';
+  if(info.phase==='past')return 'Termin minął — zaktualizuj datę lub oznacz kolejny egzamin.';
+  if(info.phase==='final')return 'Lekka powtórka, procedury i spokój. Bez maratonu nowych pytań.';
+  if(info.phase==='exam')return 'Tryb egzaminacyjny: słabości, symulator i procedury.';
+  if(info.phase==='focus')return 'Priorytet: SRS, najsłabszy dział i pełny Plan dnia.';
+  if(info.phase==='consolidate')return 'Utrwalaj materiał i systematycznie zmniejszaj liczbę słabości.';
+  return 'Buduj pokrycie bazy bez przeciążania się.';
+}
+function examDailyTarget(info=examDateInfo()){
+  if(!info.raw||info.days===null||info.days<0)return Math.max(8,Math.min(30,Number(state.dailyGoal)||25));
+  const due=srsDueQuestions().length,unseen=QUESTIONS.filter(q=>(state.stats[q.id]?.attempts||0)===0).length;
+  const base=info.days<=1?12:info.days<=3?24:info.days<=7?40:info.days<=14?30:Math.max(15,Math.ceil(unseen/Math.max(1,info.days)));
+  return Math.max(8,Math.min(80,Math.max(base,Math.min(due,base+20))));
+}
+function examDateCardHTML(compact=false){
+  const info=examDateInfo(),target=examDailyTarget(info);
+  return `<div class="exam-date-card ${compact?'compact':''}"><div><span>📅 TERMIN EGZAMINU</span><b>${info.raw?escapeHtml(info.dateLabel):'Nie ustawiono'}</b><small>${info.raw?escapeHtml(info.label):'Dodaj datę dla tego modułu'}</small></div><div class="exam-date-actions"><strong>${info.raw?`${target} pytań/dzień`:'—'}</strong><button class="secondary mini-btn" onclick="showSettings()">${info.raw?'Zmień':'Ustaw datę'}</button></div><p>${escapeHtml(examPhaseText(info))}</p></div>`;
+}
+function saveExamDateSetting(){
+  const input=document.getElementById('examDateInput');if(!input)return;
+  setExamDate(input.value,activeMachine);if(typeof toastA==='function')toastA(input.value?'Termin egzaminu zapisany':'Termin egzaminu usunięty');
+  showSettings();
+}
+function clearExamDateSetting(){const input=document.getElementById('examDateInput');if(input)input.value='';setExamDate('',activeMachine);showSettings()}
 
 
 // === 6.2.0: ekran Start jako centrum dowodzenia ===
@@ -578,6 +624,7 @@ function renderHomeDashboard(){
   const label=document.getElementById('homePlanLabel');if(label)label.textContent=`${done}/${items.length} ukończone`;
   const bar=document.getElementById('homePlanBar');if(bar)bar.style.width=`${Math.round(done/items.length*100)}%`;
   const cont=document.getElementById('homeContinueBtn');if(cont)cont.textContent=done===0?'▶ Rozpocznij plan dnia':done===items.length?'🎉 Powtórz trudne pytania':done===items.length-1?'🏁 Dokończ plan dnia':'▶ Kontynuuj trening';
+  let examCard=document.getElementById('homeExamDateCard');if(!examCard&&cont){cont.insertAdjacentHTML('afterend','<div id="homeExamDateCard"></div>');examCard=document.getElementById('homeExamDateCard')}if(examCard)examCard.innerHTML=examDateCardHTML(true);
   document.getElementById('homeStreak').textContent=`${studyStreak()} dni`;
   document.getElementById('homeBestStreak').textContent=`Rekord: ${bestStudyStreak()} dni`;
   const delta=hist.delta;document.getElementById('homeProgressDelta').textContent=delta==null?'—':`${delta>=0?'⬆':'⬇'} ${Math.abs(delta)} pkt`;

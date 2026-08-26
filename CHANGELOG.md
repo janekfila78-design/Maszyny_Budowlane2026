@@ -1,3 +1,8 @@
+## 6.4.0
+- Dodano termin egzaminu osobny dla każdego modułu.
+- Mentor pokazuje liczbę dni, etap przygotowań i sugerowany cel pytań na dzień.
+- Dodano kartę terminu na ekranie Start i w panelu Mentora.
+
 # 6.3.7 — Bezpośredni zapis technologii w planie dnia
 
 - Usunięto pośredni łańcuch `__homePlanTechnologyMachine → completeHomePlanTechnology → markHomePlan`.
