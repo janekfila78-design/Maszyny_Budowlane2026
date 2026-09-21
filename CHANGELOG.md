@@ -129,3 +129,12 @@
 - Urozmaicono trening słabych działów: 75% priorytetowych + 25% przekrojowych pytań.
 - Dodano pamięć ostatnich zestawów, aby ograniczyć identyczne sesje.
 - Ujednolicono identyfikatory cache PWA.
+# 7.0.0 — Akademia Żurawia
+
+- odblokowano Akademię Operatora i trening ustny dla żurawi wieżowych,
+- dodano 16 zadań ustnych dotyczących kontroli, eksploatacji i sytuacji awaryjnych,
+- dodano 6 scenariuszy praktycznych z krokami, błędami i pytaniami komisji,
+- dodano interaktywny trener wykresu udźwigu z masą zawiesi i historią wyników,
+- dodano trening ośmiu podstawowych sygnałów ręcznych,
+- Mentor i statystyki żurawia uwzględniają wykres udźwigu oraz sygnały,
+- zaktualizowano PWA i pamięć podręczną offline do wersji 7.0.0.

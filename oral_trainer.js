@@ -1,6 +1,6 @@
 let oralPool=[],oralIndex=0,oralRevealed=false,oralStartedAt=0;
 let oralTimerHandle=null,oralTimerRemaining=0,oralTimerRunning=false,oralSessionScores=[];
-function oralSupported(){return activeMachine==='excavators'||activeMachine==='backhoes'}
+function oralSupported(){return activeMachine==='excavators'||activeMachine==='backhoes'||activeMachine==='cranes'}
 function oralTasks(){return ORAL_TASKS[activeMachine]||[]}
 function oralStat(task){return statFor(task.id)}
 function oralMastery(task){return state.stats[task.id]?.oralMastery||'practice'}
@@ -16,7 +16,7 @@ function shuffleOral(a){const x=[...a];for(let i=x.length-1;i>0;i--){const j=Mat
 function showOralSetup(){
   stopOralTimer();
   document.getElementById('oralFinish')?.classList.add('hidden');document.getElementById('oralCore')?.classList.remove('hidden');
-  if(!oralSupported()){alert('Tryb obsługowy jest obecnie dostępny dla koparki jednonaczyniowej kl. I i koparkoładowarki kl. III.');return}
+  if(!oralSupported()){alert('Tryb obsługowy nie jest jeszcze dostępny dla tego modułu.');return}
   ['setup','dashboard','machinePicker','quiz','result','stats','browser','questionDetail','diagnostics','achievements','academy'].forEach(id=>document.getElementById(id)?.classList.add('hidden'));
   document.getElementById('oralTrainer')?.classList.remove('hidden');document.getElementById('oralSession')?.classList.add('hidden');document.getElementById('oralSetup')?.classList.remove('hidden');
   const tasks=oralTasks(),seen=tasks.filter(t=>(state.stats[t.id]?.attempts||0)>0).length,due=oralPoolBySource('due').length,weak=oralPoolBySource('weak').length;

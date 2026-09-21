@@ -1,5 +1,5 @@
 /* UDT Trainer 6.2.0 — legacy helpers without a second dashboard */
-const UDT4_VERSION='6.4.0';
+const UDT4_VERSION='7.0.0';
 
 function ensureProState(){
   state.dailyGoal=Number(state.dailyGoal)||25;

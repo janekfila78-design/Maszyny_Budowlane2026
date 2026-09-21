@@ -1,4 +1,4 @@
-const ACADEMY_VERSION='6.2.1';
+const ACADEMY_VERSION='7.0.0';
 const LEGACY_ACADEMY_KEY='udt_academy_v1';
 function academyStorageKey(machineId=activeMachine){return `udt_academy_v2_${machineId}`}
 function emptyAcademyData(){return {xp:0,games:{played:0,correct:0},tech:{},notes:{},favorites:[],history:[],days:{}}}
@@ -12,18 +12,20 @@ let academyGame=null,academyTechIndex=0,academyExam=null;
 function loadAcademyData(){return loadAcademyDataForMachine(activeMachine)}
 function saveAcademy(){academyData.days[calendarDayKey()]=1;localStorage.setItem(academyStorageKey(activeMachine),JSON.stringify(academyData))}
 const _setMachineAcademy=window.setMachine;window.setMachine=function(id){const ok=_setMachineAcademy(id);if(ok)academyData=loadAcademyDataForMachine(id);return ok}
-function academySupported(){return activeMachine==='excavators'||activeMachine==='backhoes'}
+function academySupported(){return activeMachine==='excavators'||activeMachine==='backhoes'||activeMachine==='cranes'}
 function academyTechTasks(){return TECHNOLOGY_TASKS[activeMachine]||[]}
 function academyAllTasks(){return [...oralTasks().map(t=>({...t,kind:'oral',technical:t.prompt,human:t.answer,errors:[t.trap],criteria:t.steps})),...academyTechTasks().map(t=>({...t,kind:'tech',prompt:t.technical,answer:t.human,trap:t.errors[0]}))]}
 function hideForAcademy(){['setup','dashboard','machinePicker','quiz','result','stats','browser','questionDetail','diagnostics','achievements','oralTrainer'].forEach(id=>document.getElementById(id)?.classList.add('hidden'))}
-function showAcademy(){if(!academySupported()){alert('Akademia jest dostępna dla koparki kl. I i koparkoładowarki kl. III.');return}hideForAcademy();document.getElementById('academy').classList.remove('hidden');renderAcademyHub();window.scrollTo({top:0})}
+function showAcademy(){if(!academySupported()){alert('Akademia nie jest jeszcze dostępna dla tego modułu.');return}hideForAcademy();document.getElementById('academy').classList.remove('hidden');renderAcademyHub();window.scrollTo({top:0})}
 function closeAcademy(){document.getElementById('academy').classList.add('hidden');backToMenu()}
 function academyRoot(){return document.getElementById('academyBody')}
-function renderAcademyHub(){const tech=academyTechTasks().length,oral=oralTasks().length;academyRoot().innerHTML=`
+function renderAcademyHub(){const tech=academyTechTasks().length,oral=oralTasks().length,isCrane=activeMachine==='cranes';academyRoot().innerHTML=`
 <div class="academy-hero"><div><span>WERSJA ${ACADEMY_VERSION}</span><h1>🎓 Akademia Operatora</h1><p>${MACHINE_META[activeMachine].name} • ${oral} zadań obsługowych • ${tech} zadań technologicznych</p></div><div class="academy-level"><b>${academyData.xp||0} XP</b><span>${academyRank()}</span></div></div>
 <div class="academy-grid">
 ${academyModuleCard('🎙️','1. Egzamin obsługowy','Odpowiedzi głosowe, analiza, SRS i pytania komisji','showOralSetup()')}
-${academyModuleCard('🚜','2. Zadania technologiczne','Technicznie, po ludzku, kroki, błędy i dopytania','showTechnologyModule()')}
+${academyModuleCard(isCrane?'🏗️':'🚜','2. Zadania praktyczne','Technicznie, po ludzku, kroki, błędy i dopytania','showTechnologyModule()')}
+${isCrane?academyModuleCard('📐','3. Trener wykresu udźwigu','Masa całkowita, promień i bezpieczna decyzja','showCraneLoadTrainer()'):''}
+${isCrane?academyModuleCard('🫱','4. Sygnały ręczne','Rozpoznawanie poleceń sygnalisty','showCraneSignals()'):''}
 ${academyModuleCard('🎮','3. Gry proceduralne','Klikaj kroki w kolejności, uzupełniaj i wykrywaj błędy','showAcademyGames()')}
 ${academyModuleCard('🤖','4. Mentor','Wskazuje słabe działy i układa dzisiejszy trening','showAcademyMentor()')}
 ${academyModuleCard('📈','5. Statystyki','Postęp teorii, obsługi, technologii i gier w jednym miejscu','showAcademyStats()')}
