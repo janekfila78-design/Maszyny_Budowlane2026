@@ -138,3 +138,12 @@
 - dodano trening ośmiu podstawowych sygnałów ręcznych,
 - Mentor i statystyki żurawia uwzględniają wykres udźwigu oraz sygnały,
 - zaktualizowano PWA i pamięć podręczną offline do wersji 7.0.0.
+# 7.1.0 — Wyjaśnienia, które uczą
+
+- przebudowano sekcję wyjaśnienia dla wszystkich 2098 pytań,
+- usunięto wymuszane kafle „zasada działania”, „przykład” i „pułapka”, gdy nie pasują do pytania,
+- dodano rozpoznawanie 13 dziedzin, m.in. dozoru, dokumentacji, montażu, udźwigu, zawiesi i BHP,
+- główny widok pokazuje teraz tylko konkretne „Dlaczego?” oraz krótkie „Zapamiętaj”,
+- przycisk „Dlaczego inne są złe?” analizuje osobno każdą odpowiedź A/B/C/D,
+- dodano szczegółowe reguły dla badań okresowych, odbiorczych, doraźnych i kotew traconych,
+- odświeżono wersję PWA i cache offline.

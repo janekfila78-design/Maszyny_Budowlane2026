@@ -1,6 +1,6 @@
 
 /* UDT Trainer 5.6.0 — PWA, offline, aktualizacje, chmura, statystyki, wyjaśnienia */
-const UDT_VERSION='7.0.0';
+const UDT_VERSION='7.1.0';
 let deferredInstallPrompt=null;
 let newWorkerWaiting=null;
 
@@ -42,7 +42,7 @@ async function installPWA(){if(!deferredInstallPrompt){alert('Jeśli przycisk in
 async function registerPWA(){
  if(!('serviceWorker' in navigator)||location.protocol==='file:')return;
  try{
-   const reg=await navigator.serviceWorker.register('./sw.js?v=7.0.0-cranes',{updateViaCache:'none'});
+   const reg=await navigator.serviceWorker.register('./sw.js?v=7.1.0-learning',{updateViaCache:'none'});
    if(reg.waiting)showUpdate(reg.waiting);
    reg.addEventListener('updatefound',()=>{const w=reg.installing;if(!w)return;w.addEventListener('statechange',()=>{if(w.state==='installed'&&navigator.serviceWorker.controller)showUpdate(w)})});
    setInterval(()=>reg.update().catch(()=>{}),15*60*1000);
@@ -357,6 +357,147 @@ window.explanationHTML=function(q,selectedIndex=null,expanded=false){
     <div class="assistant-section memory-tip"><b>📋 Co zapamiętać</b><p>${escapeHtml(d.tip)}</p></div>
     <div class="assistant-section common-mistake"><b>⚠️ Pułapka egzaminatora</b><p>${escapeHtml(d.mistake)}</p></div>`:''}
     ${st}<div class="assistant-actions"><button class="secondary mini-btn" onclick="showExplanation(${q.id},${selectedIndex===null?'null':Number(selectedIndex)},${expanded?'false':'true'})">${expanded?'Zwiń':'📖 Pełne wyjaśnienie'}</button><button class="secondary mini-btn" onclick="showUnifiedMentor()">🧠 Mentor</button></div>`;
+};
+
+// === 7.1.0: zwięzłe wyjaśnienia, które uczą zamiast wypełniać kafelki ===
+// Ta warstwa celowo zastępuje wcześniejsze, szerokie szablony. Nie wymusza
+// „zasady działania” ani „przykładu” tam, gdzie pytanie dotyczy prawa,
+// dokumentów, montażu, wykresu udźwigu lub definicji.
+const LEARNING_DOMAINS=[
+  ['dozor',/doz[oó]r|\budt\b|\btdt\b|\bwdt\b|badani[ea] (?:okres|odbior|doraź)|decyzj|zaświadczeni.{0,25}kwalifik|konserwator|dziennik konserw|rozporządzeni|ustaw[ayę]|inspektor/i],
+  ['documents',/instrukcj|dokument|dziennik|księg|protok[oó]ł|bioz|stanowisk|pisemnie|świadectw|deklaracj/i],
+  ['mounting',/montaż|demontaż|kotw|fundament|balast|przeciwwag|podwozi|wież[ayę]|wysięgnik|klatkowan|stacjonarn|szybkomont/i],
+  ['load',/udźwig|wykres|tabel[ai]|wysięg|moment (?:ustal|wywrac)|obciążeni|masa ładunku|ciężar|stateczno/i],
+  ['rigging',/zawiesi|hak|cięgn|lin[ayę]|łańcuch|kąt rozwarcia|dźwigni|trawers|sygnalist|ładun/i],
+  ['electric',/energetycz|elektrycz|napięci|poraż|prąd|akumulator|alternator|rozrusznik/i],
+  ['weather',/wiatr|burz|temperatur|oblodz|widoczno|atmosfer/i],
+  ['hydraulic',/hydraul|pompa|siłownik|rozdzielacz|zawór|ciśnieni|olej/i],
+  ['safety',/bezpiecz|zagroż|wypad|awari|zabron|nie wolno|pożar|pierwsz.{0,10}pomoc|poszkod|stref[ayę]|kolizyj/i],
+  ['operation',/obsług|eksploat|kontrol|sprawd|przegląd|uruchom|wyłącz|smar|filtr|paliw|chłodz|opon|gąsien/i],
+  ['earthworks',/wykop|nasyp|skarp|klin odłamu|urobek|grunt|zagęszcz|plantow|profilow|zasyp/i],
+  ['mechanics',/przekład|zwolnic|mechanizm|hamul|silnik|sworzeń|tulej|łożysk|sprzęgł|koło zębate/i]
+];
+
+const DOMAIN_LABELS={
+  dozor:['📜','Przepisy i dozór'],documents:['📋','Dokumentacja'],mounting:['🏗️','Montaż żurawia'],
+  load:['📈','Udźwig i stateczność'],rigging:['🪝','Ładunek i zawiesia'],electric:['⚡','Elektryka'],
+  weather:['🌬️','Warunki pracy'],hydraulic:['💧','Hydraulika'],safety:['🦺','Bezpieczeństwo'],
+  operation:['🔍','Obsługa i kontrola'],earthworks:['⛏️','Roboty ziemne'],mechanics:['⚙️','Budowa maszyny'],
+  definition:['📖','Pojęcie i definicja']
+};
+
+function learningDomain(q){
+  const text=`${clean(q.q)} ${(q.a||[]).map(clean).join(' ')}`;
+  return (LEARNING_DOMAINS.find(([,rx])=>rx.test(text))||['definition'])[0];
+}
+
+function stripAnswerMeta(text=''){
+  return clean(text).replace(/[.;,:]+$/,'');
+}
+
+function questionLead(q){
+  return clean(q.q).replace(/[?:.]+$/,'').replace(/\s+/g,' ');
+}
+
+function isCompoundAnswer(text=''){
+  return /wszystkie|odpowiedzi? [a-d](?: i|,)|żadna|powyższ/i.test(text);
+}
+
+function teachingExplanation(q){
+  const correctIndex=Number(q.correct),correct=stripAnswerMeta(answerText(q,correctIndex));
+  const domain=learningDomain(q),label=DOMAIN_LABELS[domain]||DOMAIN_LABELS.definition;
+  const stem=questionLead(q),all=`${stem} ${correct}`.toLowerCase();
+  let why=`Pytanie brzmi: „${stem}”. Poprawna reguła lub informacja to: „${correct}”.`;
+  let memory=`${stem} → ${correct}.`;
+
+  if(domain==='dozor'){
+    if(/badani[ea] okresow/.test(all)&&/pełn/.test(correct.toLowerCase())){why='Badania okresowe są elementem dozoru pełnego. W tej formie dozoru urządzenie jest cyklicznie badane przez właściwą jednostkę dozoru technicznego.';memory='Badania okresowe → dozór pełny.';}
+    else if(/badani[ea] odbiorcz/.test(all)){why=`Badanie odbiorcze wykonuje się przed pierwszym dopuszczeniem urządzenia do eksploatacji. Dlatego właściwa odpowiedź to „${correct}”.`;memory='Odbiorcze = przed pierwszą decyzją zezwalającą na eksploatację.';}
+    else if(/doraźn/.test(all)){why=`Badanie doraźne wiąże się ze szczególnym zdarzeniem lub zmianą w urządzeniu, a nie ze zwykłym terminem okresowym. W tym pytaniu takim przypadkiem jest: „${correct}”.`;memory=`Doraźne = po zdarzeniu lub istotnej zmianie; tutaj: ${correct}.`;}
+    else if(/decyzj.{0,35}wydaje/.test(all)){why=`Decyzję administracyjną zezwalającą na eksploatację wydaje właściwy organ dozoru technicznego, nie operator, konserwator ani serwis. Poprawnie: „${correct}”.`;memory='Konserwator przegląda; organ dozoru wydaje decyzję.';}
+    else {why=`To pytanie sprawdza konkretną zasadę dozoru technicznego, a nie budowę maszyny. Obowiązująca odpowiedź egzaminacyjna brzmi: „${correct}”.`;memory=`Dozór: ${stem} → ${correct}.`;}
+  } else if(domain==='mounting'){
+    if(/kotw.{0,20}tracon/.test(all)){why='Kotwy tracone są osadzane w fundamencie i pozostają w nim po demontażu żurawia. Stosuje się je więc przy stacjonarnym posadowieniu żurawia.';memory='Kotwa tracona zostaje w fundamencie → montaż stacjonarny.';}
+    else if(/balast|przeciwwag/.test(all)){why=`Balast lub przeciwwaga równoważy moment wywracający żuraw. W warunku z pytania prawidłowy skutek albo sposób zastosowania to: „${correct}”.`;memory=`Balast/przeciwwaga → stateczność; tutaj: ${correct}.`;}
+    else {why=`Pytanie dotyczy konkretnej konfiguracji albo etapu montażu żurawia. Dla opisanego przypadku właściwe jest: „${correct}”.`;memory=`Montaż: ${stem} → ${correct}.`;}
+  } else if(domain==='load'){
+    why=`Udźwig zależy od konfiguracji żurawia i wysięgu. Najpierw odczytuje się właściwy wariant z wykresu lub tabeli, a dopiero potem porównuje obciążenie. W tym pytaniu wynik to: „${correct}”.`;
+    memory=`Konfiguracja + wysięg → odczyt udźwigu → ${correct}.`;
+  } else if(domain==='rigging'){
+    why=`Dobór sposobu podwieszenia zależy od masy, środka ciężkości, punktów zaczepienia i dopuszczalnego obciążenia zawiesia. Dla sytuacji z pytania prawidłowe jest: „${correct}”.`;
+    memory=`Ładunek: masa + środek ciężkości + punkty zaczepienia → ${correct}.`;
+  } else if(domain==='documents'){
+    why=`Pytanie sprawdza, w jakim dokumencie znajduje się informacja albo kto ma ją potwierdzić. Właściwe źródło lub czynność to: „${correct}”.`;
+    memory=`Dokumentacja: ${stem} → ${correct}.`;
+  } else if(domain==='electric'){
+    why=`Przy urządzeniach i liniach elektrycznych liczy się zapobieganie dotknięciu oraz przeskokowi łuku. Dla warunku z pytania prawidłowa zasada brzmi: „${correct}”.`;
+    memory=`Elektryka: rozpoznaj napięcie i zagrożenie → ${correct}.`;
+  } else if(domain==='weather'){
+    why=`Warunki atmosferyczne mogą pogorszyć stateczność, widoczność i kontrolę nad ładunkiem. Granice pracy określa instrukcja urządzenia, a tutaj poprawne działanie lub wartość to: „${correct}”.`;
+    memory=`Pogoda + instrukcja żurawia → ${correct}.`;
+  } else if(domain==='hydraulic'){
+    why=`W hydraulice pompa wytwarza przepływ, zawory nim sterują, a siłownik lub silnik hydrauliczny zamienia energię oleju na ruch. W tym pytaniu właściwe jest: „${correct}”.`;
+    memory=`Pompa → sterowanie → odbiornik; tutaj: ${correct}.`;
+  } else if(domain==='safety'){
+    why=`Poprawna odpowiedź usuwa lub ogranicza bezpośrednie zagrożenie przed wykonaniem dalszej czynności. W opisanej sytuacji należy: „${correct}”.`;
+    memory=`Najpierw zagrożenie i zabezpieczenie, potem działanie → ${correct}.`;
+  } else if(domain==='operation'){
+    why=`Obsługa ma wykryć usterkę przed pracą albo zapobiec jej pogłębianiu. Dla elementu i warunku z pytania prawidłowa czynność to: „${correct}”.`;
+    memory=`Sprawdź → oceń → zareaguj; tutaj: ${correct}.`;
+  } else if(domain==='earthworks'){
+    why=`W robotach ziemnych trzeba uwzględnić stateczność gruntu, położenie maszyny i kolejność pracy. W tym przypadku właściwa zasada brzmi: „${correct}”.`;
+    memory=`Grunt + ustawienie + kolejność → ${correct}.`;
+  } else if(domain==='mechanics'){
+    const part=machinePartInfo(correct)||machinePartInfo(stem);
+    if(part){why=`${part.name} ${part.fn}. ${part.where}.`;memory=part.memory;}
+    else {why=`Pytanie sprawdza funkcję albo budowę elementu maszyny. Właściwe dopasowanie to: „${correct}”.`;memory=`Element → funkcja; tutaj: ${correct}.`;}
+  } else if(/co to jest|nazywa|definicj|oznacza|to:/.test(stem.toLowerCase())){
+    why=`To pytanie wymaga rozpoznania definicji. „${correct}” jako jedyna odpowiedź podaje znaczenie zgodne z pytanym pojęciem.`;
+    memory=`${stem} = ${correct}.`;
+  }
+
+  if(isCompoundAnswer(correct)) memory=`Sprawdź każdy wariant osobno. Wynik: ${correct}.`;
+  return {domain,label,correct,correctIndex,why,memory};
+}
+
+function answerReason(q,index,data){
+  const answer=stripAnswerMeta(answerText(q,index));
+  if(index===data.correctIndex)return `to właściwa odpowiedź: ${data.why.charAt(0).toLowerCase()}${data.why.slice(1)}`;
+  const low=answer.toLowerCase(),correctLow=data.correct.toLowerCase();
+  if(/wszystkie/.test(low))return 'odpada, ponieważ nie wszystkie pozostałe warianty są prawdziwe.';
+  if(/żadna|wszystkie.*nieprawidł/.test(low))return 'odpada, ponieważ wśród pozostałych wariantów znajduje się odpowiedź prawidłowa.';
+  if(/odpowiedzi? [a-d](?: i|,)/.test(low))return 'odpada, ponieważ wskazany zestaw zawiera co najmniej jeden wariant nieprawidłowy albo pomija prawidłowy.';
+  if(/nie|nigdy|zabron|nie wolno/.test(low)!==/nie|nigdy|zabron|nie wolno/.test(correctLow))return 'odwraca warunek, zakaz lub obowiązek podany w prawidłowej zasadzie.';
+  if(/\d/.test(answer)&&/\d/.test(data.correct))return `podaje inną wartość niż wymagana. Dla tego warunku właściwa wartość to „${data.correct}”.`;
+  const part=machinePartInfo(answer);
+  if(part)return `${part.name} ${part.fn}, ale pytanie wymaga innej funkcji lub elementu.`;
+  const domainHints={
+    dozor:'myli formę dozoru, rodzaj badania, właściwy organ albo wymagany termin.',
+    documents:'wskazuje niewłaściwy dokument, osobę albo sposób potwierdzenia.',
+    mounting:'dotyczy innej konfiguracji, rodzaju posadowienia albo etapu montażu.',
+    load:'nie odpowiada zależności między konfiguracją, wysięgiem, obciążeniem i statecznością.',
+    rigging:'nie spełnia warunku bezpiecznego podwieszenia lub prowadzenia ładunku.',
+    electric:'nie usuwa zagrożenia elektrycznego albo stosuje niewłaściwy warunek bezpieczeństwa.',
+    weather:'nie uwzględnia granic pracy określonych dla warunków atmosferycznych.',
+    hydraulic:'myli źródło przepływu, element sterujący albo odbiornik hydrauliczny.',
+    safety:'pomija zagrożenie, zabezpieczenie albo właściwą kolejność działania.',
+    operation:'pomija warunki kontroli lub prowadzi do niewłaściwej reakcji na usterkę.',
+    earthworks:'pomija stateczność gruntu, ustawienie maszyny albo prawidłową kolejność robót.',
+    mechanics:'przypisuje elementowi inną funkcję niż wymagana w pytaniu.',
+    definition:'nie odpowiada definicji lub relacji wskazanej w pytaniu.'
+  };
+  return domainHints[data.domain]||domainHints.definition;
+}
+
+window.explanationHTML=function(q,selectedIndex=null,expanded=false){
+  const d=teachingExplanation(q),st=learningStatusFor(q);
+  const alternatives=(q.a||[]).map((text,i)=>`<li class="${i===d.correctIndex?'goodText':''}"><b>${letter(i)}. ${escapeHtml(clean(text))}</b><br><span>${i===d.correctIndex?'✅':'❌'} ${escapeHtml(answerReason(q,i,d))}</span></li>`).join('');
+  return `<div class="assistant-head"><span class="assistant-icon">🧠</span><div><b>Wyjaśnienie</b><span class="small">${d.label[0]} ${escapeHtml(d.label[1])}</span></div></div>
+    <div class="assistant-correct"><span>✅ Poprawna odpowiedź</span><b>${letter(d.correctIndex)}. ${escapeHtml(d.correct)}</b></div>
+    <div class="assistant-section assistant-human"><b>💡 Dlaczego?</b><p>${escapeHtml(d.why)}</p></div>
+    <div class="assistant-section memory-tip"><b>🧠 Zapamiętaj</b><p>${escapeHtml(d.memory)}</p></div>
+    ${expanded?`<div class="assistant-section"><b>🔎 Odpowiedzi po kolei</b><ul class="answer-reasons">${alternatives}</ul></div>`:''}
+    ${st}<div class="assistant-actions"><button class="secondary mini-btn" onclick="showExplanation(${q.id},${selectedIndex===null?'null':Number(selectedIndex)},${expanded?'false':'true'})">${expanded?'Zwiń':'🔎 Dlaczego inne są złe?'}</button><button class="secondary mini-btn" onclick="showUnifiedMentor()">🧠 Mentor</button></div>`;
 };
 
 setTimeout(ensureUnifiedMentorUI,0);
