@@ -1,6 +1,6 @@
 
 /* UDT Trainer 5.6.0 — PWA, offline, aktualizacje, chmura, statystyki, wyjaśnienia */
-const UDT_VERSION='7.1.0';
+const UDT_VERSION='7.1.1';
 let deferredInstallPrompt=null;
 let newWorkerWaiting=null;
 
@@ -42,7 +42,7 @@ async function installPWA(){if(!deferredInstallPrompt){alert('Jeśli przycisk in
 async function registerPWA(){
  if(!('serviceWorker' in navigator)||location.protocol==='file:')return;
  try{
-   const reg=await navigator.serviceWorker.register('./sw.js?v=7.1.0-learning',{updateViaCache:'none'});
+   const reg=await navigator.serviceWorker.register('./sw.js?v=7.1.1-learning-fix',{updateViaCache:'none'});
    if(reg.waiting)showUpdate(reg.waiting);
    reg.addEventListener('updatefound',()=>{const w=reg.installing;if(!w)return;w.addEventListener('statechange',()=>{if(w.state==='installed'&&navigator.serviceWorker.controller)showUpdate(w)})});
    setInterval(()=>reg.update().catch(()=>{}),15*60*1000);
@@ -410,7 +410,13 @@ function teachingExplanation(q){
   let why=`Pytanie brzmi: „${stem}”. Poprawna reguła lub informacja to: „${correct}”.`;
   let memory=`${stem} → ${correct}.`;
 
-  if(domain==='dozor'){
+  if(/odległoś.{0,40}osi obrotu.{0,50}osi haka/.test(all)){
+    why='Wysięg to pozioma odległość od osi obrotu żurawia do pionowej osi haka. Nie jest to długość wysięgnika ani wysokość podnoszenia.';
+    memory='Oś obrotu → pionowa oś haka = wysięg.';
+  } else if(/nazywamy|co to jest|oznacza|to jest:|to:/.test(stem.toLowerCase())){
+    why=`To pytanie sprawdza definicję pojęcia. „${correct}” jest nazwą dokładnie tego, co opisano w treści pytania.`;
+    memory=`Definicja: ${stem} → ${correct}.`;
+  } else if(domain==='dozor'){
     if(/badani[ea] okresow/.test(all)&&/pełn/.test(correct.toLowerCase())){why='Badania okresowe są elementem dozoru pełnego. W tej formie dozoru urządzenie jest cyklicznie badane przez właściwą jednostkę dozoru technicznego.';memory='Badania okresowe → dozór pełny.';}
     else if(/badani[ea] odbiorcz/.test(all)){why=`Badanie odbiorcze wykonuje się przed pierwszym dopuszczeniem urządzenia do eksploatacji. Dlatego właściwa odpowiedź to „${correct}”.`;memory='Odbiorcze = przed pierwszą decyzją zezwalającą na eksploatację.';}
     else if(/doraźn/.test(all)){why=`Badanie doraźne wiąże się ze szczególnym zdarzeniem lub zmianą w urządzeniu, a nie ze zwykłym terminem okresowym. W tym pytaniu takim przypadkiem jest: „${correct}”.`;memory=`Doraźne = po zdarzeniu lub istotnej zmianie; tutaj: ${correct}.`;}
@@ -492,6 +498,19 @@ function answerReason(q,index,data){
 window.explanationHTML=function(q,selectedIndex=null,expanded=false){
   const d=teachingExplanation(q),st=learningStatusFor(q);
   const alternatives=(q.a||[]).map((text,i)=>`<li class="${i===d.correctIndex?'goodText':''}"><b>${letter(i)}. ${escapeHtml(clean(text))}</b><br><span>${i===d.correctIndex?'✅':'❌'} ${escapeHtml(answerReason(q,i,d))}</span></li>`).join('');
+  return `<div class="assistant-head"><span class="assistant-icon">🧠</span><div><b>Wyjaśnienie</b><span class="small">${d.label[0]} ${escapeHtml(d.label[1])}</span></div></div>
+    <div class="assistant-correct"><span>✅ Poprawna odpowiedź</span><b>${letter(d.correctIndex)}. ${escapeHtml(d.correct)}</b></div>
+    <div class="assistant-section assistant-human"><b>💡 Dlaczego?</b><p>${escapeHtml(d.why)}</p></div>
+    <div class="assistant-section memory-tip"><b>🧠 Zapamiętaj</b><p>${escapeHtml(d.memory)}</p></div>
+    ${expanded?`<div class="assistant-section"><b>🔎 Odpowiedzi po kolei</b><ul class="answer-reasons">${alternatives}</ul></div>`:''}
+    ${st}<div class="assistant-actions"><button class="secondary mini-btn" onclick="showExplanation(${q.id},${selectedIndex===null?'null':Number(selectedIndex)},${expanded?'false':'true'})">${expanded?'Zwiń':'🔎 Dlaczego inne są złe?'}</button><button class="secondary mini-btn" onclick="showUnifiedMentor()">🧠 Mentor</button></div>`;
+};
+
+// MUSI pozostać ostatnią definicją explanationHTML w pliku. Wcześniejsze
+// implementacje zachowano dla zgodności, ale ta jest jedyną aktywną wersją.
+window.explanationHTML=function(q,selectedIndex=null,expanded=false){
+  const d=teachingExplanation(q),st=learningStatusFor(q);
+  const alternatives=(q.a||[]).map((answer,i)=>`<li class="${i===d.correctIndex?'goodText':''}"><b>${letter(i)}. ${escapeHtml(clean(answer))}</b><br><span>${i===d.correctIndex?'✅':'❌'} ${escapeHtml(answerReason(q,i,d))}</span></li>`).join('');
   return `<div class="assistant-head"><span class="assistant-icon">🧠</span><div><b>Wyjaśnienie</b><span class="small">${d.label[0]} ${escapeHtml(d.label[1])}</span></div></div>
     <div class="assistant-correct"><span>✅ Poprawna odpowiedź</span><b>${letter(d.correctIndex)}. ${escapeHtml(d.correct)}</b></div>
     <div class="assistant-section assistant-human"><b>💡 Dlaczego?</b><p>${escapeHtml(d.why)}</p></div>
@@ -901,15 +920,12 @@ function typedDistractorReason(q,index,d){
 }
 
 window.explanationHTML=function(q,selectedIndex=null,expanded=false){
-  const d=richerExplanationData(q,selectedIndex),st=learningStatusFor(q),r=typedExplanation(q,d.correct);
-  d.questionType=r.type;
-  const alternatives=d.distractors.map(x=>`<li class="${x.correct?'goodText':''}"><b>${letter(x.i)}.</b> ${escapeHtml(x.text)} — ${escapeHtml(typedDistractorReason(q,x.i,d))}</li>`).join('');
-  return `<div class="assistant-head"><span class="assistant-icon">🧠</span><div><b>O co tu chodzi?</b><span class="small">${r.typeIcon} ${escapeHtml(r.typeLabel)} • wyjaśnienie dopasowane do pytania</span></div></div>
-    <div class="assistant-correct"><span>📖 Poprawna odpowiedź</span><b>${letter(d.correctIndex)}. ${escapeHtml(d.correct)}</b></div>
-    <div class="assistant-section assistant-human"><b>🙂 Po ludzku</b><p>${escapeHtml(r.human)}</p></div>
-    <div class="assistant-section"><b>${r.typeIcon} ${escapeHtml(r.typeLabel)}</b><p>${escapeHtml(r.principle)}</p></div>
-    <div class="assistant-section assistant-more"><b>🚜 Przykład / skutek w praktyce</b><p>${escapeHtml(r.practice)}</p></div>
-    <div class="assistant-section common-mistake"><b>⚠️ Pułapka egzaminatora</b><p>${escapeHtml(r.trap)}</p></div>
-    ${expanded?`<div class="assistant-section assistant-technical"><b>⚙️ Technicznie</b><p>${escapeHtml(r.technical)}</p></div><div class="assistant-section"><b>❌ Dlaczego pozostałe odpadają?</b><ul class="answer-reasons">${alternatives}</ul></div><div class="assistant-section memory-tip"><b>📋 Co zapamiętać</b><p>${escapeHtml(r.tip)}</p></div>`:''}
-    ${st}<div class="assistant-actions"><button class="secondary mini-btn" onclick="showExplanation(${q.id},${selectedIndex===null?'null':Number(selectedIndex)},${expanded?'false':'true'})">${expanded?'Zwiń':'📖 Dlaczego inne są złe?'}</button><button class="secondary mini-btn" onclick="showUnifiedMentor()">🧠 Mentor</button></div>`;
+  const d=teachingExplanation(q),st=learningStatusFor(q);
+  const alternatives=(q.a||[]).map((answer,i)=>`<li class="${i===d.correctIndex?'goodText':''}"><b>${letter(i)}. ${escapeHtml(clean(answer))}</b><br><span>${i===d.correctIndex?'✅':'❌'} ${escapeHtml(answerReason(q,i,d))}</span></li>`).join('');
+  return `<div class="assistant-head"><span class="assistant-icon">🧠</span><div><b>Wyjaśnienie</b><span class="small">${d.label[0]} ${escapeHtml(d.label[1])}</span></div></div>
+    <div class="assistant-correct"><span>✅ Poprawna odpowiedź</span><b>${letter(d.correctIndex)}. ${escapeHtml(d.correct)}</b></div>
+    <div class="assistant-section assistant-human"><b>💡 Dlaczego?</b><p>${escapeHtml(d.why)}</p></div>
+    <div class="assistant-section memory-tip"><b>🧠 Zapamiętaj</b><p>${escapeHtml(d.memory)}</p></div>
+    ${expanded?`<div class="assistant-section"><b>🔎 Odpowiedzi po kolei</b><ul class="answer-reasons">${alternatives}</ul></div>`:''}
+    ${st}<div class="assistant-actions"><button class="secondary mini-btn" onclick="showExplanation(${q.id},${selectedIndex===null?'null':Number(selectedIndex)},${expanded?'false':'true'})">${expanded?'Zwiń':'🔎 Dlaczego inne są złe?'}</button><button class="secondary mini-btn" onclick="showUnifiedMentor()">🧠 Mentor</button></div>`;
 };

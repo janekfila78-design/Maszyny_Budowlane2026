@@ -1,8 +1,8 @@
-const VERSION='udt-trainer-7.1.0-learning';
+const VERSION='udt-trainer-7.1.1-learning-fix';
 const CACHE=VERSION;
 const ASSETS=[
-  './','./index.html','./reset.html','./style.css?v=7.1.0-learning',
-  './app.js?v=6.4.0-exam-date','./enhancements.js?v=7.1.0-learning','./udt4.js?v=6.4.0-exam-date',
+  './','./index.html','./reset.html','./style.css?v=7.1.1-learning-fix',
+  './app.js?v=6.4.0-exam-date','./enhancements.js?v=7.1.1-learning-fix','./udt4.js?v=6.4.0-exam-date',
   './manifest.webmanifest','./icon-192.png','./icon-512.png',
   './crane_questions_1.js','./crane_questions_2.js','./crane_questions_3.js','./crane_questions_4.js',
   './excavator_questions_1.js','./backhoe_questions_1.js','./loader_questions_1.js',
