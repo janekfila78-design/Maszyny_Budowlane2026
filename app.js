@@ -12,8 +12,8 @@ let QUESTIONS=MACHINE_META[activeMachine].questions;
 
 let KEY=MACHINE_META[activeMachine].key;
 let SESSION_KEY=MACHINE_META[activeMachine].session;
-const defaultState=()=>({theme:'dark',stats:{},favorites:[],history:[],notes:{},studyDays:[],xp:0,totalCorrect:0,currentStreakCorrect:0,bestStreakCorrect:0});
-let state=loadState(), pool=[], current=0, correct=0, answered=false, mode='learn', answersLog=[];let examSimulator=false,examDeadline=0,examStartedAt=0,examTimerHandle=null,examAnswers={},examFlags=new Set();
+const defaultState=()=>({theme:'dark',stats:{},favorites:[],history:[],notes:{},studyDays:[],weakSessionSeq:0,xp:0,totalCorrect:0,currentStreakCorrect:0,bestStreakCorrect:0});
+let activeWeaknessSession=false;let state=loadState(), pool=[], current=0, correct=0, answered=false, mode='learn', answersLog=[];let examSimulator=false,examDeadline=0,examStartedAt=0,examTimerHandle=null,examAnswers={},examFlags=new Set();
 
 function updateMachineUI(){
   const m=MACHINE_META[activeMachine];
@@ -35,7 +35,7 @@ function setMachine(id){
   activeMachine=id;
   localStorage.setItem('udt_active_machine',id);
   QUESTIONS=MACHINE_META[id].questions;KEY=MACHINE_META[id].key;SESSION_KEY=MACHINE_META[id].session;
-  state=loadState();pool=[];current=0;correct=0;answered=false;answersLog=[];examSimulator=false;examAnswers={};examFlags=new Set();
+  state=loadState();activeWeaknessSession=false;pool=[];current=0;correct=0;answered=false;answersLog=[];examSimulator=false;examAnswers={};examFlags=new Set();
   updateMachineUI();updateDashboard();updatePoolInfo();
   return true;
 }
@@ -93,6 +93,32 @@ function statFor(id){
   st.lastAttempt=Number(st.lastAttempt)||0;
   return st
 }
+// Niezależny od SRS trening słabości: pięć sukcesów w odstępach czasowych.
+const WEAK_TARGET=5;
+const WEAK_WAIT_HOURS=[0,24,48,72,96]; // po sukcesach 1/5, 2/5, 3/5, 4/5
+function weakProgress(st){return Math.max(0,Math.min(WEAK_TARGET,Number(st?.weakStreak)||0))}
+function weakNextDue(st){
+  const progress=weakProgress(st);
+  if(progress===0||progress>=WEAK_TARGET)return 0;
+  // Starsze postępy bez znacznika czasu: zachowujemy punkty, nie blokujemy pytania.
+  const last=Number(st?.lastWeakSuccessAt)||0;
+  return last ? last+WEAK_WAIT_HOURS[progress]*3600000 : 0;
+}
+function weakReady(st,now=Date.now()){return weakNextDue(st)<=now}
+function registerWeakAnswer(st,isGood){
+  if(!isGood){st.weakStreak=0;st.lastWeakSuccessAt=0;return false}
+  if(!weakReady(st))return false;
+  const session=Number(state.weakSessionSeq)||0;
+  if(st.lastWeakSuccessSession===session)return false;
+  st.lastWeakSuccessSession=session;
+  st.weakStreak=Math.min(WEAK_TARGET,weakProgress(st)+1);
+  st.lastWeakSuccessAt=Date.now();
+  return true;
+}
+function weakWaitText(ms){
+  const hours=Math.ceil(Math.max(0,ms)/3600000);
+  return hours>=24?`${Math.ceil(hours/24)} dni`:`${hours} godz.`;
+}
 const SRS_INTERVAL_DAYS=[0,1,3,7,14,30,60];
 function migrateAllStoredSRS(){
   for(const m of Object.values(MACHINE_META)){
@@ -123,27 +149,39 @@ function updateModuleBadges(){
 }
 function isWeakQuestion(q){
   const st=state.stats[q.id];
-  return !!st && (st.wrong||0)>0 && (Number(st.weakStreak)||0)<2
+  return !!st && (st.wrong||0)>0 && weakProgress(st)<WEAK_TARGET
 }
 function weaknessWeight(q){
   const st=state.stats[q.id];
   if(!st)return -1;
   const rate=(st.correct||0)/Math.max(1,st.attempts||0);
-  return (st.wrong||0)*35+(1-rate)*100-Math.min(st.weakStreak||0,2)*30+Math.min(st.attempts||0,10)
+  return (st.wrong||0)*35+(1-rate)*100-Math.min(weakProgress(st),WEAK_TARGET)*30+Math.min(st.attempts||0,10)
 }
 function weaknessQuestions(){
-  return QUESTIONS.filter(isWeakQuestion).sort((a,b)=>weaknessWeight(b)-weaknessWeight(a))
+  return QUESTIONS.filter(q=>isWeakQuestion(q)&&weakReady(state.stats[q.id])).sort((a,b)=>{
+    // W pierwszej kolejności pytania niepokazywane w ostatniej sesji.
+    const recentA=Number(state.stats[a.id]?.lastWeakShownSession)||0;
+    const recentB=Number(state.stats[b.id]?.lastWeakShownSession)||0;
+    return recentA-recentB || weaknessWeight(b)-weaknessWeight(a);
+  })
 }
 function startWeaknessTraining(){
   const list=weaknessQuestions();
   if(!list.length){
-    const msg='Brak aktywnych słabości. Pytanie trafia tutaj po błędzie i wypada po 2 kolejnych poprawnych odpowiedziach.';
+    const waiting=QUESTIONS.filter(isWeakQuestion).length;const msg=waiting?'Wszystkie słabości czekają na zaplanowaną powtórkę. Wróć później — nie trzeba ich zaliczać na siłę.':'Brak aktywnych słabości. Pytanie wypada po 5 poprawnych odpowiedziach rozłożonych w czasie.';
     const err=document.getElementById('setupError');if(err)err.textContent=msg;else alert(msg);
     return
   }
   document.getElementById('mode').value='learn';
   const count=Math.min(Math.max(1,Number(document.getElementById('count').value)||20),list.length);
-  startNew(list.slice(0,count))
+  startWeakPool(list.slice(0,count))
+}
+function startWeakPool(selected){
+  state.weakSessionSeq=(Number(state.weakSessionSeq)||0)+1;
+  selected.forEach(q=>{statFor(q.id).lastWeakShownSession=state.weakSessionSeq});
+  saveState();
+  activeWeaknessSession=true;
+  startNew(selected);
 }
 function calendarDayKey(date=new Date()){const x=new Date(date);x.setMinutes(x.getMinutes()-x.getTimezoneOffset());return x.toISOString().slice(0,10)}
 function todayKey(){return calendarDayKey()}
@@ -159,9 +197,15 @@ function filteredQuestions(){const source=document.getElementById('source').valu
 function updatePoolInfo(){const list=filteredQuestions();document.getElementById('poolInfo').textContent=`Dostępnych w tej puli: ${list.length}.`}
 function seededShuffle(list,seed){let a=[...list],x=seed>>>0;for(let i=a.length-1;i>0;i--){x=(x*1664525+1013904223)>>>0;const j=x%(i+1);[a[i],a[j]]=[a[j],a[i]]}return a}
 function startDailyChallenge(){const d=new Date(),seed=Number(`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`);document.getElementById('mode').value='learn';examSimulator=false;startNew(seededShuffle(QUESTIONS,seed).slice(0,20))}
-function startExamSimulator(){if(!confirm('Uruchomić symulację PRO: 30 pytań, 30 minut, próg treningowy 75%? Odpowiedzi poznasz dopiero na końcu.'))return;document.getElementById('mode').value='exam';examSimulator=true;examAnswers={};examFlags=new Set();examStartedAt=Date.now();examDeadline=examStartedAt+30*60*1000;startNew(shuffle([...QUESTIONS]).slice(0,30));startExamTimer()}
+function startExamSimulator(){if(!confirm('Uruchomić symulację PRO: 30 pytań, 30 minut, próg treningowy 75%? Odpowiedzi poznasz dopiero na końcu.'))return;document.getElementById('mode').value='exam';examSimulator=true;activeWeaknessSession=false;examAnswers={};examFlags=new Set();examStartedAt=Date.now();examDeadline=examStartedAt+30*60*1000;startNew(shuffle([...QUESTIONS]).slice(0,30));startExamTimer()}
 function startExamTimer(){clearInterval(examTimerHandle);const stat=document.getElementById('timerStat'),out=document.getElementById('examTimer');if(!examSimulator){stat.classList.add('hidden');out.classList.remove('timer-danger');return}stat.classList.remove('hidden');const tick=()=>{const left=Math.max(0,examDeadline-Date.now()),sec=Math.ceil(left/1000),m=Math.floor(sec/60),s=sec%60;out.textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;out.classList.toggle('timer-danger',sec<=300);if(left<=0){clearInterval(examTimerHandle);alert('Czas minął. Test zostanie zakończony.');finish(true)}};tick();examTimerHandle=setInterval(tick,1000)}
-function startNew(customPool=null){document.getElementById('setupError').textContent='';if(!customPool)examSimulator=false;mode=document.getElementById('mode').value;let list=customPool||filteredQuestions();let n=Math.max(1,Math.min(parseInt(document.getElementById('count').value||20,10),list.length));if(!list.length){document.getElementById('setupError').textContent='Ta pula jest pusta. Najpierw przerób kilka pytań albo dodaj ulubione.';return}pool=customPool?[...customPool]:list.slice(0,n);current=0;correct=0;answered=false;answersLog=[];showQuiz();saveSession();render()}
+function startNew(customPool=null){document.getElementById('setupError').textContent='';if(!customPool)examSimulator=false;activeWeaknessSession=customPool?activeWeaknessSession:document.getElementById('source').value==='weaknesses';mode=document.getElementById('mode').value;let list=customPool||filteredQuestions();let n=Math.max(1,Math.min(parseInt(document.getElementById('count').value||20,10),list.length));if(!list.length){document.getElementById('setupError').textContent=document.getElementById('source').value==='weaknesses'&&QUESTIONS.some(isWeakQuestion)?'Wszystkie słabości czekają na kolejny termin powtórki.':'Ta pula jest pusta. Najpierw przerób kilka pytań albo dodaj ulubione.';return}pool=customPool?[...customPool]:list.slice(0,n);
+  if(!customPool&&document.getElementById('source').value==='weaknesses'){
+    state.weakSessionSeq=(Number(state.weakSessionSeq)||0)+1;
+    pool.forEach(q=>{statFor(q.id).lastWeakShownSession=state.weakSessionSeq});
+    saveState();
+  }
+  current=0;correct=0;answered=false;answersLog=[];showQuiz();saveSession();render()}
 function showQuiz(){document.getElementById('setup').classList.add('hidden');document.getElementById('dashboard').classList.add('hidden');document.getElementById('result').classList.add('hidden');document.getElementById('stats').classList.add('hidden');const q=document.getElementById('quiz');q.classList.remove('hidden');q.classList.toggle('exam-mode',examSimulator)}
 let answerStartedAt=Date.now();
 const answerEffects=[];
@@ -174,7 +218,11 @@ function goToExamQuestion(i){if(!examSimulator||i<0||i>=pool.length)return;curre
 function examPrev(){goToExamQuestion(Math.max(0,current-1))}
 function examNext(){goToExamQuestion(Math.min(pool.length-1,current+1))}
 function toggleExamFlag(){if(examFlags.has(current))examFlags.delete(current);else examFlags.add(current);renderExamNavigator();saveSession()}
-function choose(idx){if(answered&&!examSimulator)return;const item=pool[current],buttons=[...document.querySelectorAll('.answer')],isGood=idx===item.correct;if(examSimulator){const old=examAnswers[current];if(old){correct-=old.isGood?1:0;answersLog=answersLog.filter(x=>x.index!==current)}examAnswers[current]={chosen:idx,correct:item.correct,isGood};correct+=isGood?1:0;answersLog.push({index:current,id:item.id,chosen:idx,correct:item.correct,isGood});answered=true;buttons.forEach((b,i)=>b.classList.toggle('selected',i===idx));document.getElementById('ok').textContent=correct;document.getElementById('pct').textContent=`${Math.round(correct/Math.max(1,answersLog.length)*100)}%`;renderExamNavigator();saveSession();return}answered=true;buttons.forEach(b=>b.disabled=true);if(isGood)correct++;const st=statFor(item.id);st.attempts++;registerStudyDay();state.xp=(state.xp||0)+(isGood?10:3);if(isGood){st.correct++;st.weakStreak=(st.wrong||0)>0?(Number(st.weakStreak)||0)+1:0;updateSRS(st,true);state.totalCorrect=(state.totalCorrect||0)+1;state.currentStreakCorrect=(state.currentStreakCorrect||0)+1;state.bestStreakCorrect=Math.max(state.bestStreakCorrect||0,state.currentStreakCorrect)}else{st.wrong++;st.weakStreak=0;updateSRS(st,false);state.currentStreakCorrect=0}answersLog.push({id:item.id,chosen:idx,correct:item.correct,isGood});buttons[item.correct]?.classList.add('good');if(!isGood)buttons[idx]?.classList.add('bad');const fb=document.getElementById('feedback');fb.className=`feedback ${isGood?'good':'bad'}`;fb.textContent=isGood?'Dobrze. Jedziemy dalej.':`Źle. Poprawna: ${String.fromCharCode(65+item.correct)}. ${clean(item.correctText)}`;document.getElementById('ok').textContent=correct;document.getElementById('pct').textContent=`${Math.round(correct/(current+1)*100)}%`;document.getElementById('bar').style.width=`${(current+1)/pool.length*100}%`;document.getElementById('next').classList.remove('hidden');const elapsed=Math.max(1,Math.round((Date.now()-answerStartedAt)/1000));runAnswerEffects({item,idx,isGood,elapsed});saveState();saveSession()}
+function choose(idx){if(answered&&!examSimulator)return;const item=pool[current],buttons=[...document.querySelectorAll('.answer')],isGood=idx===item.correct;if(examSimulator){const old=examAnswers[current];if(old){correct-=old.isGood?1:0;answersLog=answersLog.filter(x=>x.index!==current)}examAnswers[current]={chosen:idx,correct:item.correct,isGood};correct+=isGood?1:0;answersLog.push({index:current,id:item.id,chosen:idx,correct:item.correct,isGood});answered=true;buttons.forEach((b,i)=>b.classList.toggle('selected',i===idx));document.getElementById('ok').textContent=correct;document.getElementById('pct').textContent=`${Math.round(correct/Math.max(1,answersLog.length)*100)}%`;renderExamNavigator();saveSession();return}answered=true;buttons.forEach(b=>b.disabled=true);if(isGood)correct++;const st=statFor(item.id);st.attempts++;registerStudyDay();state.xp=(state.xp||0)+(isGood?10:3);if(isGood){st.correct++;if((st.wrong||0)>0){
+    if(activeWeaknessSession)registerWeakAnswer(st,true);
+  }
+  updateSRS(st,true);state.totalCorrect=(state.totalCorrect||0)+1;state.currentStreakCorrect=(state.currentStreakCorrect||0)+1;state.bestStreakCorrect=Math.max(state.bestStreakCorrect||0,state.currentStreakCorrect)}else{st.wrong++;st.weakStreak=0;st.lastWeakSuccessAt=0;updateSRS(st,false);state.currentStreakCorrect=0}answersLog.push({id:item.id,chosen:idx,correct:item.correct,isGood});buttons[item.correct]?.classList.add('good');if(!isGood)buttons[idx]?.classList.add('bad');const fb=document.getElementById('feedback');fb.className=`feedback ${isGood?'good':'bad'}`;fb.textContent=isGood?'Dobrze. Jedziemy dalej.':`Źle. Poprawna: ${String.fromCharCode(65+item.correct)}. ${clean(item.correctText)}`;
+  if((st.wrong||0)>0||!isGood)fb.textContent+=` | 🎯 Słabość: ${Math.min(WEAK_TARGET,weakProgress(st))}/${WEAK_TARGET}${weakProgress(st)>=WEAK_TARGET?' — opanowana!':(isGood&&activeWeaknessSession&&weakProgress(st)>0?' — następna za '+weakWaitText(Math.max(0,weakNextDue(st)-Date.now())):'')}`;document.getElementById('ok').textContent=correct;document.getElementById('pct').textContent=`${Math.round(correct/(current+1)*100)}%`;document.getElementById('bar').style.width=`${(current+1)/pool.length*100}%`;document.getElementById('next').classList.remove('hidden');const elapsed=Math.max(1,Math.round((Date.now()-answerStartedAt)/1000));runAnswerEffects({item,idx,isGood,elapsed});saveState();saveSession()}
 function nextQuestion(){if(!answered)return;if(examSimulator){examNext();return}current++;if(current>=pool.length)finish(true);else{saveSession();render()}}
 function launchConfetti(){
   const layer=document.createElement('div');layer.className='confetti-layer';document.body.appendChild(layer);
@@ -182,7 +230,7 @@ function launchConfetti(){
   for(let i=0;i<70;i++){const e=document.createElement('span');e.textContent=chars[i%chars.length];e.style.left=(Math.random()*100)+'vw';e.style.animationDelay=(Math.random()*.7)+'s';e.style.animationDuration=(1.8+Math.random()*1.8)+'s';e.style.fontSize=(14+Math.random()*18)+'px';layer.appendChild(e)}
   setTimeout(()=>layer.remove(),4200)
 }
-function finish(completed=false){if(examSimulator){const unanswered=pool.length-Object.keys(examAnswers).length;if(unanswered&&!confirm(`Pozostało ${unanswered} pytań bez odpowiedzi. Na pewno zakończyć?`))return}else if(!completed&&!confirm('Zakończyć test teraz? Wynik zostanie policzony tylko z udzielonych odpowiedzi.'))return;clearInterval(examTimerHandle);const wasSimulator=examSimulator;const endedAt=Date.now();const elapsedSec=wasSimulator?Math.max(0,Math.round((endedAt-(examStartedAt||endedAt))/1000)):0;if(wasSimulator){answersLog.forEach(x=>{const st=statFor(x.id);st.attempts++;if(x.isGood){st.correct++;st.weakStreak=(st.wrong||0)>0?(Number(st.weakStreak)||0)+1:0;updateSRS(st,true)}else{st.wrong++;st.weakStreak=0;updateSRS(st,false)}});registerStudyDay();state.xp=(state.xp||0)+correct*10+(answersLog.length-correct)*3;state.totalCorrect=(state.totalCorrect||0)+correct}examSimulator=false;document.getElementById('timerStat').classList.add('hidden');const answeredCount=answersLog.length;if(!answeredCount){backToMenu();return}localStorage.removeItem(SESSION_KEY);document.getElementById('quiz').classList.add('hidden');document.getElementById('result').classList.remove('hidden');const pct=Math.round(correct/answeredCount*100),wrong=answersLog.filter(x=>!x.isGood),unansweredItems=wasSimulator?pool.filter((q,i)=>!examAnswers[i]):[];document.getElementById('resultText').textContent=`${correct}/${answeredCount} poprawnych — ${pct}%.`;const timeText=wasSimulator?`${String(Math.floor(elapsedSec/60)).padStart(2,'0')}:${String(elapsedSec%60).padStart(2,'0')}`:'';document.getElementById('resultMeta').innerHTML=(completed?`Ukończono ${answeredCount} pytań.`:`Odpowiedziano na ${answeredCount} z ${pool.length} pytań.`)+(wasSimulator?`<div class="${pct>=75?'exam-pass':'exam-fail'}">${pct>=75?'✅ SYMULACJA ZALICZONA':'❌ SYMULACJA NIEZALICZONA'} — próg treningowy 75%</div><div class="exam-summary"><div><span class="small">Poprawne</span><b>${correct}</b></div><div><span class="small">Błędne</span><b>${wrong.length}</b></div><div><span class="small">Pominięte</span><b>${unansweredItems.length}</b></div></div><div class="result-time">⏱️ Czas rozwiązania: <b>${timeText}</b></div>`:'');state.history.unshift({date:new Date().toISOString(),mode:wasSimulator?'simulator':mode,count:answeredCount,correct,pct,completed,elapsedSec,unanswered:unansweredItems.length});state.history=state.history.slice(0,30);saveState();
+function finish(completed=false){if(examSimulator){const unanswered=pool.length-Object.keys(examAnswers).length;if(unanswered&&!confirm(`Pozostało ${unanswered} pytań bez odpowiedzi. Na pewno zakończyć?`))return}else if(!completed&&!confirm('Zakończyć test teraz? Wynik zostanie policzony tylko z udzielonych odpowiedzi.'))return;clearInterval(examTimerHandle);const wasSimulator=examSimulator;const endedAt=Date.now();const elapsedSec=wasSimulator?Math.max(0,Math.round((endedAt-(examStartedAt||endedAt))/1000)):0;if(wasSimulator){answersLog.forEach(x=>{const st=statFor(x.id);st.attempts++;if(x.isGood){st.correct++;updateSRS(st,true)}else{st.wrong++;st.weakStreak=0;st.lastWeakSuccessAt=0;updateSRS(st,false)}});registerStudyDay();state.xp=(state.xp||0)+correct*10+(answersLog.length-correct)*3;state.totalCorrect=(state.totalCorrect||0)+correct}examSimulator=false;activeWeaknessSession=false;document.getElementById('timerStat').classList.add('hidden');const answeredCount=answersLog.length;if(!answeredCount){backToMenu();return}localStorage.removeItem(SESSION_KEY);document.getElementById('quiz').classList.add('hidden');document.getElementById('result').classList.remove('hidden');const pct=Math.round(correct/answeredCount*100),wrong=answersLog.filter(x=>!x.isGood),unansweredItems=wasSimulator?pool.filter((q,i)=>!examAnswers[i]):[];document.getElementById('resultText').textContent=`${correct}/${answeredCount} poprawnych — ${pct}%.`;const timeText=wasSimulator?`${String(Math.floor(elapsedSec/60)).padStart(2,'0')}:${String(elapsedSec%60).padStart(2,'0')}`:'';document.getElementById('resultMeta').innerHTML=(completed?`Ukończono ${answeredCount} pytań.`:`Odpowiedziano na ${answeredCount} z ${pool.length} pytań.`)+(wasSimulator?`<div class="${pct>=75?'exam-pass':'exam-fail'}">${pct>=75?'✅ SYMULACJA ZALICZONA':'❌ SYMULACJA NIEZALICZONA'} — próg treningowy 75%</div><div class="exam-summary"><div><span class="small">Poprawne</span><b>${correct}</b></div><div><span class="small">Błędne</span><b>${wrong.length}</b></div><div><span class="small">Pominięte</span><b>${unansweredItems.length}</b></div></div><div class="result-time">⏱️ Czas rozwiązania: <b>${timeText}</b></div>`:'');state.history.unshift({date:new Date().toISOString(),mode:wasSimulator?'simulator':mode,count:answeredCount,correct,pct,completed,elapsedSec,unanswered:unansweredItems.length});state.history=state.history.slice(0,30);saveState();
 // Pierwszy kafelek Planu dnia: zalicz dopiero pełną, uruchomioną z niego sesję 8 pytań.
 try{
   const raw=sessionStorage.getItem('udt_home_theory_session');
@@ -205,11 +253,11 @@ if(wasSimulator&&pct>=75)setTimeout(launchConfetti,120);renderReview(wrong,unans
 function renderReview(wrong,unansweredItems=[]){const box=document.getElementById('reviewBox');box.innerHTML='';if(!wrong.length&&!unansweredItems.length){box.innerHTML='<div class="feedback good" style="display:block">Bez błędów. No i tak ma być.</div>';return}if(wrong.length){const title=document.createElement('h2');title.textContent=`Błędne odpowiedzi (${wrong.length})`;box.appendChild(title);wrong.forEach(x=>{const q=QUESTIONS.find(z=>z.id===x.id),d=document.createElement('div');d.className='review';d.innerHTML=`<b>Pytanie ${q.id}: ${escapeHtml(clean(q.q))}</b><div class="badText">Twoja: ${letter(x.chosen)}. ${escapeHtml(clean(q.a[x.chosen]))}</div><div class="goodText">Poprawna: ${letter(q.correct)}. ${escapeHtml(clean(q.correctText))}</div>`;box.appendChild(d)})}if(unansweredItems.length){const title=document.createElement('h2');title.textContent=`Pominięte pytania (${unansweredItems.length})`;box.appendChild(title);unansweredItems.forEach(q=>{const d=document.createElement('div');d.className='review';d.innerHTML=`<b>Pytanie ${q.id}: ${escapeHtml(clean(q.q))}</b><div class="goodText">Poprawna: ${letter(q.correct)}. ${escapeHtml(clean(q.correctText))}</div>`;box.appendChild(d)})}}
 
 function retryWrong(){const p=(window.__lastWrong||[]).filter(Boolean);if(p.length)startNew(shuffle(p))}
-function backToMenu(){document.getElementById('oralTrainer')?.classList.add('hidden');document.getElementById('academy')?.classList.add('hidden');clearInterval(examTimerHandle);examSimulator=false;document.getElementById('timerStat').classList.add('hidden');document.getElementById('quiz').classList.add('hidden');document.getElementById('result').classList.add('hidden');document.getElementById('stats').classList.add('hidden');document.getElementById('setup').classList.remove('hidden');document.getElementById('dashboard').classList.remove('hidden');updatePoolInfo();updateDashboard();checkResume()}
+function backToMenu(){document.getElementById('oralTrainer')?.classList.add('hidden');document.getElementById('academy')?.classList.add('hidden');clearInterval(examTimerHandle);examSimulator=false;activeWeaknessSession=false;document.getElementById('timerStat').classList.add('hidden');document.getElementById('quiz').classList.add('hidden');document.getElementById('result').classList.add('hidden');document.getElementById('stats').classList.add('hidden');document.getElementById('setup').classList.remove('hidden');document.getElementById('dashboard').classList.remove('hidden');updatePoolInfo();updateDashboard();checkResume()}
 function toggleFavorite(){const id=pool[current].id,i=state.favorites.indexOf(id);if(i>=0)state.favorites.splice(i,1);else state.favorites.push(id);saveState();document.getElementById('favBtn').textContent=state.favorites.includes(id)?'★':'☆'}
-function saveSession(){localStorage.setItem(SESSION_KEY,JSON.stringify({poolIds:pool.map(q=>q.id),current,correct,answered,mode,answersLog,examSimulator,examDeadline,examStartedAt,examAnswers,examFlags:[...examFlags]}))}
+function saveSession(){localStorage.setItem(SESSION_KEY,JSON.stringify({poolIds:pool.map(q=>q.id),current,correct,answered,mode,answersLog,activeWeaknessSession,examSimulator,examDeadline,examStartedAt,examAnswers,examFlags:[...examFlags]}))}
 function checkResume(){try{const s=JSON.parse(localStorage.getItem(SESSION_KEY)||'null');document.getElementById('resumeBtn').classList.toggle('hidden',!s||!s.poolIds?.length)}catch(e){document.getElementById('resumeBtn').classList.add('hidden')}}
-function resumeSession(){try{const s=JSON.parse(localStorage.getItem(SESSION_KEY));pool=s.poolIds.map(id=>QUESTIONS.find(q=>q.id===id)).filter(Boolean);current=s.current||0;correct=s.correct||0;answered=false;mode=s.mode||'learn';answersLog=s.answersLog||[];examSimulator=!!s.examSimulator;examDeadline=s.examDeadline||0;examStartedAt=s.examStartedAt||Date.now();examAnswers=s.examAnswers||{};examFlags=new Set(s.examFlags||[]);showQuiz();render();startExamTimer()}catch(e){localStorage.removeItem(SESSION_KEY);backToMenu()}}
+function resumeSession(){try{const s=JSON.parse(localStorage.getItem(SESSION_KEY));pool=s.poolIds.map(id=>QUESTIONS.find(q=>q.id===id)).filter(Boolean);current=s.current||0;correct=s.correct||0;answered=false;mode=s.mode||'learn';answersLog=s.answersLog||[];activeWeaknessSession=!!s.activeWeaknessSession;examSimulator=!!s.examSimulator;examDeadline=s.examDeadline||0;examStartedAt=s.examStartedAt||Date.now();examAnswers=s.examAnswers||{};examFlags=new Set(s.examFlags||[]);showQuiz();render();startExamTimer()}catch(e){localStorage.removeItem(SESSION_KEY);backToMenu()}}
 function updateDashboard(){
   const vals=Object.values(state.stats),attempts=vals.reduce((a,x)=>a+x.attempts,0),corrects=vals.reduce((a,x)=>a+x.correct,0),wrong=vals.filter(x=>x.wrong>0).length,seen=vals.filter(x=>x.attempts>0).length,mastery=masteryPercent(),lv=xpLevel();
   const setText=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value};
