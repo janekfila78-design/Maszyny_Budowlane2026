@@ -1,3 +1,16 @@
+## 7.2.1 — Kolejka SRS z limitem, uczciwszy wskaźnik
+- Dzienny limit powtórek SRS (domyślnie 60; w Ustawieniach: 30 / 60 / 100 / 150 / bez limitu). Najpierw najsłabsze i najbardziej zaległe pytania.
+- Pytanie odpowiedziane dziś (także błędnie) nie wraca do kolejki tego samego dnia — kolejka realnie maleje o liczbę odpowiedzi.
+- Błąd cofa poziom SRS o 2 zamiast do zera, więc dobrze znane pytania nie wracają co chwilę.
+- Karta „SRS na dziś" pokazuje: na dziś / zaległe razem / zrobione dziś; usunięto zdublowaną kartę SRS w statystykach.
+- „Szansa zdania": bez żadnego symulatora egzaminu wynik jest ograniczony do 60 0 opisany jako wstępny.
+
+## 7.2.0 — Obrazki poza kodem
+- Ilustracje (309 w żurawiach, po 50 w pozostałych modułach) przeniesione z base64 w plikach JS do folderu `img/` w formacie WebP.
+- Pliki pytań żurawi: ok. 37 MB → ok. 350 KB; szybszy start aplikacji.
+- Obrazki są pobierane do cache offline razem z aplikacją (Service Worker 7.2.0).
+- Treść pytań i klucze postępów bez zmian — zapisane postępy zostają.
+
 ## 6.4.0
 - Dodano termin egzaminu osobny dla każdego modułu.
 - Mentor pokazuje liczbę dni, etap przygotowań i sugerowany cel pytań na dzień.

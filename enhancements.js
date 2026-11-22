@@ -1,6 +1,6 @@
 
 /* UDT Trainer 5.6.0 — PWA, offline, aktualizacje, chmura, statystyki, wyjaśnienia */
-const UDT_VERSION='7.1.1';
+const UDT_VERSION='7.2.1';
 let deferredInstallPrompt=null;
 let newWorkerWaiting=null;
 
@@ -60,7 +60,7 @@ function enhancedStatsHTML(){
  const hard=QUESTIONS.filter(q=>(state.stats[q.id]?.attempts||0)>0).sort((a,b)=>smartWeight(b)-smartWeight(a)).slice(0,10);
  const fav=state.favorites.length, notes=Object.keys(state.notes||{}).length,due=srsDueQuestions().length,mastered=QUESTIONS.filter(q=>masteryFor(q)===1).length,weak=weaknessQuestions().length;
  const exams=state.history.filter(h=>h.mode==='simulator'||h.mode==='exam'),passed=exams.filter(h=>h.pct>=75).length,best=exams.length?Math.max(...exams.map(h=>h.pct)):0;
- let html=`<div class="pro-stats-head"><div><span class="small">🧠 SRS do powtórki</span><b>${due}</b><span class="small">pytania gotowe teraz</span></div><div><span class="small">✅ Opanowane</span><b>${mastered}/${QUESTIONS.length}</b><span class="small">pełny poziom opanowania</span></div><div><span class="small">🎯 Symulatory zdane</span><b>${passed}/${exams.length}</b><span class="small">najlepszy wynik ${best}%</span></div></div>`;
+ let html=`<div class="pro-stats-head"><div><span class="small">✅ Opanowane</span><b>${mastered}/${QUESTIONS.length}</b><span class="small">pełny poziom opanowania</span></div><div><span class="small">🎯 Symulatory zdane</span><b>${passed}/${exams.length}</b><span class="small">najlepszy wynik ${best}%</span></div></div>`;
  html+=`<div class="row"><div class="stat"><span class="small">Łączne odpowiedzi</span><b>${attempts}</b></div><div class="stat"><span class="small">Skuteczność</span><b>${attempts?Math.round(corrects/attempts*100):0}%</b></div><div class="stat"><span class="small">Przerobione</span><b>${seen}/${QUESTIONS.length}</b></div><div class="stat"><span class="small">Słabości</span><b>${weak}</b></div><div class="stat"><span class="small">⭐ Ulubione</span><b>${fav}</b></div><div class="stat"><span class="small">📝 Notatki</span><b>${notes}</b></div></div>`;
  html+=`<div class="readiness-note recommend"><b>🏆 Status modułu</b><span class="small">Opanowanie ${masteryPercent()}% • ${masteryPercent()>=90?'moduł ukończony — puchar odblokowany':'puchar odblokuje się przy 90% opanowania'}</span></div>`;
  html+=`<div class="charts-grid"><div class="chart-card"><h2>📈 Ostatnie wyniki</h2><canvas id="resultsChart" width="800" height="300"></canvas></div><div class="chart-card"><h2>📅 Aktywność 14 dni</h2><canvas id="activityChart" width="800" height="300"></canvas></div></div>`;

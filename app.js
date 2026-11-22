@@ -132,12 +132,23 @@ function migrateAllStoredSRS(){
 migrateAllStoredSRS();
 function updateSRS(st,isGood){
   const now=Date.now();
+  if(Number(st.lastAttempt)>0)srsCountReview();
   st.lastAttempt=now;
-  if(isGood)st.srsLevel=Math.min(SRS_INTERVAL_DAYS.length-1,(Number(st.srsLevel)||0)+1);else st.srsLevel=0;
+  // 7.2.1: błąd cofa poziom o 2 (nie do zera), żeby pytania znane wcześniej nie wracały co chwilę.
+  if(isGood)st.srsLevel=Math.min(SRS_INTERVAL_DAYS.length-1,(Number(st.srsLevel)||0)+1);else st.srsLevel=Math.max(0,(Number(st.srsLevel)||0)-2);
   const days=isGood?SRS_INTERVAL_DAYS[st.srsLevel]:0;
   st.due=now+days*86400000;
 }
-function srsDueQuestions(){const now=Date.now();return QUESTIONS.filter(q=>{const st=state.stats[q.id];return st&&st.attempts>0&&(!st.due||st.due<=now)})}
+// 7.2.1: kolejka SRS z dziennym limitem.
+// - srsDueQuestions(): wszystkie zaległe, BEZ pytań już odpowiedzianych dzisiaj (wracają jutro, więc kolejka realnie maleje),
+// - srsTodayQueue(): tyle pytań, ile zostało do dziennego limitu (najsłabsze i najbardziej zaległe najpierw).
+function srsDayKey(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)}
+function srsStartOfToday(){const d=new Date();d.setHours(0,0,0,0);return d.getTime()}
+function srsDoneToday(){const x=state.srsDone;return x&&x.d===srsDayKey()?Number(x.n)||0:0}
+function srsCountReview(){const k=srsDayKey();if(!state.srsDone||state.srsDone.d!==k)state.srsDone={d:k,n:0};state.srsDone.n++}
+function srsDailyLimit(){const v=state.settings&&state.settings.srsLimit;if(v===0)return 0;return Number(v)>0?Number(v):60}
+function srsDueQuestions(){const now=Date.now(),t0=srsStartOfToday();return QUESTIONS.filter(q=>{const st=state.stats[q.id];return st&&st.attempts>0&&(!st.due||st.due<=now)&&!(Number(st.lastAttempt)>=t0)})}
+function srsTodayQueue(){const lim=srsDailyLimit(),all=srsDueQuestions().sort((a,b)=>{const x=state.stats[a.id],y=state.stats[b.id];return ((x.srsLevel||0)-(y.srsLevel||0))||((x.due||0)-(y.due||0))});if(!lim)return all;return all.slice(0,Math.max(0,lim-srsDoneToday()))}
 function moduleMasteryPercent(id){
   const m=MACHINE_META[id];if(!m)return 0;let st;try{st=JSON.parse(localStorage.getItem(m.key)||'{}').stats||{}}catch{st={}}
   const sum=m.questions.reduce((a,q)=>{const x=st[q.id];if(!x||x.attempts<2)return a;const r=x.correct/Math.max(1,x.attempts);return a+(x.attempts>=3&&r>=.8?1:r>=.5?.5:.15)},0);
@@ -271,8 +282,8 @@ function updateDashboard(){
   setText('dLevel',`Poziom ${lv.level}`);
   setText('dXpText',`${state.xp||0} XP • do kolejnego: ${Math.max(0,lv.end-(state.xp||0))}`);
   setWidth('xpBar',`${lv.pct}%`);
-  const due=srsDueQuestions(),hard=QUESTIONS.filter(q=>(state.stats[q.id]?.wrong||0)>0).sort((a,b)=>smartWeight(b)-smartWeight(a)).slice(0,3);
-  setText('recommendText',due.length?`SRS czeka: ${due.length} pytań jest już do powtórki. Uruchom Inteligentne powtórki.`:hard.length?`Powtórz pytania ${hard.map(q=>q.id).join(', ')} — to obecnie Twoje najsłabsze punkty.`:seen?`Dobra robota. SRS sam przypomni pytania, gdy przyjdzie pora na utrwalenie.`:'Rozwiąż pierwszą sesję, a aplikacja wskaże słabe punkty.');
+  const due=srsTodayQueue(),backlog=srsDueQuestions().length,hard=QUESTIONS.filter(q=>(state.stats[q.id]?.wrong||0)>0).sort((a,b)=>smartWeight(b)-smartWeight(a)).slice(0,3);
+  setText('recommendText',due.length?`SRS na dziś: ${due.length} pytań${backlog>due.length?` (zaległych razem: ${backlog})`:''}. Uruchom Inteligentne powtórki.`:srsDoneToday()>0&&backlog>0?`Dzienny limit powtórek wykonany (${srsDoneToday()}). Reszta (${backlog}) poczeka do jutra — możesz dorzucić nowe pytania.`:hard.length?`Powtórz pytania ${hard.map(q=>q.id).join(', ')} — to obecnie Twoje najsłabsze punkty.`:seen?`Dobra robota. SRS sam przypomni pytania, gdy przyjdzie pora na utrwalenie.`:'Rozwiąż pierwszą sesję, a aplikacja wskaże słabe punkty.');
 }
 function showStats(){hideMainPanels();document.getElementById('stats').classList.remove('hidden');const vals=Object.values(state.stats),attempts=vals.reduce((a,x)=>a+x.attempts,0),corrects=vals.reduce((a,x)=>a+x.correct,0);const hard=QUESTIONS.filter(q=>(state.stats[q.id]?.attempts||0)>0).sort((a,b)=>smartWeight(b)-smartWeight(a)).slice(0,12);let html=`<div class="row"><div class="stat"><span class="small">Łączne odpowiedzi</span><b>${attempts}</b></div><div class="stat"><span class="small">Poprawne</span><b>${corrects}</b></div><div class="stat"><span class="small">Najlepsza seria</span><b>${state.bestStreakCorrect||0}</b></div><div class="stat"><span class="small">Opanowanie</span><b>${masteryPercent()}%</b></div></div><h2 style="margin-top:18px">Najtrudniejsze pytania</h2>`;html+=hard.length?hard.map(q=>{const x=state.stats[q.id];return `<div class="history-item" onclick="openQuestionDetail(${q.id})" style="cursor:pointer"><span>Pytanie ${q.id}</span><b>${Math.round(x.correct/x.attempts*100)}% (${x.attempts} prób)</b></div>`}).join(''):'<p class="small">Brak danych.</p>';html+='<h2 style="margin-top:18px">Historia testów</h2>';html+=state.history.length?state.history.map(h=>`<div class="history-item"><span>${new Date(h.date).toLocaleString('pl-PL')} • ${h.mode==='exam'?'egzamin':'nauka'} • ${h.count} pytań</span><b>${h.pct}%</b></div>`).join(''):'<p class="small">Brak ukończonych testów.</p>';document.getElementById('statsBody').innerHTML=html}
 function hideMainPanels(){['setup','dashboard','quiz','result','stats','browser','questionDetail','achievements','diagnostics','academy'].forEach(id=>document.getElementById(id).classList.add('hidden'))}
